@@ -2,7 +2,6 @@ section .data
     newline db 10            ; Save newline char as a variable
     ARG_ERROR db 'There was an arg error',10,0
     FD_ERROR db 'There was a fd error',10,0
-    filename db 'textdata.txt',0
 
 section .bss
     buffer resb 256          ; Buffer to hold the read string (255 bytes)
@@ -15,7 +14,7 @@ _start:
     cmp rax, 2               ; Check that there are 2 arguments
     jne arg_exit             ; If there are not 2 arguments, exit
 
-    lea rdi, [rsp+18]        ; Store pointer to filename in RSI
+    mov rdi, [rsp+16]        ; Store pointer to filename in RSI
     call open_file           ; Open the file
 
     cmp rax, 2               ; Check file descriptor (0,1,2 are reserved)
@@ -33,7 +32,6 @@ _start:
 
 open_file:
     mov eax, 0x02             ; Syscall "open"
-    mov rdi, filename            ; Put filename in RDI
     mov rsi, 0                ; Open with flag RD_ONLY
     mov rdx, 0
     syscall
