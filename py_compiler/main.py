@@ -1,3 +1,4 @@
+from core_elements import Program
 from parser import Parser
 from lexer import Lexer
 
@@ -8,5 +9,7 @@ if __name__ == '__main__':
 
     lex = Lexer(content)
     
-    parser = Parser()
-    parser.parse(lex)
+    parser = Parser(lex)
+    program: Program = parser.parse()
+
+    print(program)
