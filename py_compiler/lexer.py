@@ -4,29 +4,50 @@ from enum import Enum
 
 class Token:
     class TokenType(Enum):
-        PUBLIC = r'public\s'
-        SEALED = r'sealed\s'
-        ABSTRACT = r'abstract\s'
-        CLASS = r'class\s'
-        EXTENDS = r'extends\s'
-        STATIC = r'static\s'
-        MUTABLE = r'mut\s'
-        FUNCTION = r'func\s'
-        CONSTRUCTOR = r'constructor'
-        COMMENT = r'//.*\n'
-        #TYPE = r'[iu](8|16|32|64)|(f(32|64))|void'
-        VAL = r'\'\\?.\'|0x[0-9A-F]{1,8}|0o[0-7]{1,22}|0b[01]{1,64}|\d+\.\d*|\d*\.\d+'
+        PUBLIC = r'\bpublic\b'
+        SEALED = r'\bsealed\b'
+        ABSTRACT = r'\babstract\b'
+        CLASS = r'\bclass\b'
+        EXTENDS = r'\bextends\b'
+        STATIC = r'\bstatic\b'
+        MUTABLE = r'\bmut\b'
+        FUNCTION = r'\bfunc\b'
+        CONSTRUCTOR = r'\bconstructor\b'
+        NEW = r'\bnew\b'
+        IF = r'\bif(?=[\s(])'
+        ELSE = r'\belse(?=[\s(])'
+        WHILE = r'\bwhile(?=[\s(])'
+        FOR = r'\bfor(?=[\s(])'
+        FOREACH = r'\bforeach(?=[\s(])'
+        IN = r'\bin\b'
+        COMMENT = r'//.*\n|/\*.*\*/'
+        VAL = r'\'\\?.\'|0x[0-9A-Fa-f]{1,8}\b|0o[0-7]{1,22}\b|0b[01]{1,64}\b|\d+\.\d*\b|\d*\.\d+\b|\d+\b'
         IDENTIFIER = r'[a-zA-Z_]\w*'
         LBRACE = r'{'
         RBRACE = r'}'
         LPAREN = r'\('
         RPAREN = r'\)'
+        LEQ = r'<='
+        LT = r'<'
+        GEQ = r'>='
+        GT = r'>'
+        NEQ = r'!='
+        EQ = r'=='
+        NOT = r'!'
+        AND = r'&&'
+        OR = r'\|\|'
         SET = r'='
+        INC = r'\+\+'
+        DEC = r'\-\-'
         ADD = r'\+'
         SUB = r'\-'
         MULT = r'\*'
         DIV = r'/'
         MOD = r'%'
+        BIT_AND = r'&'
+        BIT_OR = r'\|'
+        BIT_XOR = r'\^'
+        BIT_NOT = r'~'
         COMMA = r','
         DOT = r'\.'
         SEMICOLON = r';'
@@ -46,6 +67,12 @@ class Lexer:
         self.hold_tokens: list[tuple[Token,int]] = []
 
         self.debug_mode: bool = debug_mode
+
+        self.MODS = [Token.TokenType.PUBLIC,
+                        Token.TokenType.SEALED,
+                        Token.TokenType.ABSTRACT,
+                        Token.TokenType.STATIC,
+                        Token.TokenType.MUTABLE]
 
     def next_token(self) -> Token:
         if len(self.hold_tokens) > 0: 
@@ -101,9 +128,8 @@ class Lexer:
             regex: re.Pattern = re.compile(tok.value)
             match = regex.match(self.text, self.pos)
             if match:
-                self.pos = match.end()
-                
-                if tok.name == 'WS': return self.__next_token(peek)
+                self.pos = match.end()                
+                if tok == Token.TokenType.WS or tok == Token.TokenType.COMMENT: return self.__next_token(peek)
                 else: 
                     token = Token(tok, match.group().strip())
                     if self.debug_mode: print(f"NEXT: {tok.name} {token.content} {self.pos}")
