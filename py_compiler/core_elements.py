@@ -151,6 +151,27 @@ class Body:
         output += "}"
         return output
     
+class CaseBody(Body):
+    def __str__(self) -> str:
+        output = ""
+        if len(self.statements) > 0:
+            for i in range(len(self.statements)-1):
+                output += f"{self.statements[i]}\n"
+            output += str(self.statements[-1])
+        return output
+    
+class Break:
+    def __str__(self) -> str:
+        return "break;"
+    
+class Return:
+    def __init__(self, ret_val: Expression):
+        self.ret_val = ret_val
+
+    def __str__(self) -> str:
+        if self.ret_val: return f"return {self.ret_val};"
+        return "return;"
+    
 class VariableUpdate:
     def __init__(self, name: str, op: VariableSetOperation, val: Expression):
         self.name = name
@@ -184,8 +205,9 @@ class If:
         if len(self.elseifs) > 0:
             for elseif in self.elseifs:
                 output += f"else {elseif}"
-        if not self.els is None: output += f"else {self.els}"
-        if type(self.content) == Statement: output += '\n'
+        if not self.els is None: 
+            output += f"else {self.els}"
+            if type(self.els) == Statement: output += '\n'
  
         return output
     
@@ -220,6 +242,30 @@ class ForEach:
     def __str__(self) -> str:
         output = f"foreach ({self.var} in {self.iterator}) "
         output += f"{self.content}"
+        return output
+    
+class Case:
+    def __init__(self, val: Expression, content: Body):
+            self.val = val
+            self.content = content
+
+    def __str__(self) -> str:
+        if self.val is None: return f'default:\n {self.content}'
+
+        output = f"case {self.val}:"
+        if not self.content is None: output += f"\n{self.content}"
+        return output
+
+class Switch:
+    def __init__(self, test_val: Expression, cases: list[Case]):
+            self.test_val = test_val
+            self.cases = cases
+
+    def __str__(self) -> str:
+        output = f"switch ({self.test_val}) " + '{\n'
+        for case in self.cases:
+            output += f"{case}\n"
+        output += '}'
         return output
 
 class Constructor:

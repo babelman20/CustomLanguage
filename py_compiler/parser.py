@@ -419,7 +419,7 @@ class Parser:
     
     def parse_body(self) -> Body:
         '''
-        Body : Statment Body
+        Body : Statement Body
               | empty
         '''
         if self.debug_mode: print("Body check")
@@ -431,8 +431,7 @@ class Parser:
 
         statement: Statement = self.parse_statement()
         body = self.parse_body()
-        if not statement is None: body.statements.insert(0, statement)
-
+        body.statements.insert(0, statement)
         return body
     
     def parse_statement(self) -> Statement:
@@ -440,9 +439,13 @@ class Parser:
         Statement : IfBlock
                    | WhileBlock
                    | ForBlock
+                   | ForEachBlock
+                   | Switch
                    | FunctionCall (IDENTIFIER LPAREN or IDENTIFIER DOT)
                    | VariableDeclaration (IDENTIFIER IDENTIFIER)
                    | VariableUpdate SEMICOLON (IDENTIFIER (ADD|SUB|MULT|DIV|MOD|empty)SET or INC|DEC IDENTIFIER or IDENTIFIER INC|DEC)
+                   | Return
+                   | BREAK SEMICOLON
         '''
         if self.debug_mode: print("Statment check")
 
@@ -459,6 +462,16 @@ class Parser:
             return Statement(self.parse_for_block())
         elif toks[0].type == Token.TokenType.FOREACH:
            return Statement(self.parse_foreach_block())
+        elif toks[0].type == Token.TokenType.SWITCH:
+            return Statement(self.parse_switch())
+        elif toks[0].type == Token.TokenType.BREAK:
+            if toks[1] is None or not toks[1].type == Token.TokenType.SEMICOLON:
+                print("Expected semicolon ';' after break statement")
+                raise Exception()
+            self.lexer.pop_tokens(2)
+            return Statement(Break())
+        elif toks[0].type == Token.TokenType.RETURN:
+           return Statement(self.parse_return())
         elif toks[0].type == Token.TokenType.INC or toks[0].type == Token.TokenType.DEC:
             var_update = self.parse_variable_update()
             tok: Token = self.lexer.next_token()
@@ -488,6 +501,31 @@ class Parser:
         print(f"Unrecognized statement starting with: {toks[0].content} {toks[1].content}")
         raise Exception()
     
+    def parse_return(self) -> Return:
+        '''
+        Return : RETURN SEMICOLON
+                | RETURN Expression SEMICOLON
+        '''
+        if self.debug_mode: print("Return check")
+
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.RETURN:
+            print("Expected 'return' keyword")
+            raise Exception()
+        
+        tok: Token = self.lexer.peek_next()
+        if tok is None:
+            print("Unexpected end of file")
+            raise Exception()
+        elif not tok.type == Token.TokenType.SEMICOLON: val = self.parse_expression()
+        else: val = None
+
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.SEMICOLON:
+            print("Expected semicolon ';' after return statement")
+            raise Exception()
+        return Return(val)
+
     def parse_if_block(self) -> If:
         '''
         IfBlock : IF LPAREN Conditions RPAREN LBRACE Block RBRACE
@@ -676,6 +714,132 @@ class Parser:
                 raise Exception()
             
         return ForEach(var_declr, iterable_var, content)
+    
+    def parse_switch(self) -> Switch:
+        '''
+        Switch : SWITCH LPAREN Expression RPAREN LBRACE Cases RBRACE
+        '''
+        if self.debug_mode: print("Switch block check")
+
+        toks: list[Token] = self.lexer.next_tokens(2)
+        if toks[0] is None or toks[1] is None:
+            print("Unexpected end of file")
+            raise Exception()
+        elif not toks[0].type == Token.TokenType.SWITCH or not toks[1].type == Token.TokenType.LPAREN:
+            print(f"Invalid statement: {toks[0].content} {toks[1].content}")
+            raise Exception()
+        
+        test_val: Expression = self.parse_expression()
+
+        toks: list[Token] = self.lexer.next_tokens(2)
+        if toks[0] is None or toks[1] is None:
+            print("Unexpected end of file")
+            raise Exception()
+        elif not toks[0].type == Token.TokenType.RPAREN:
+            print("Switch statement missing close parenthesis ')'")
+            raise Exception()
+        elif not toks[1].type == Token.TokenType.LBRACE:
+            print("Switch statement missing open brace '{'")
+            raise Exception()
+        
+        cases: list[Case] = self.parse_cases()
+
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.RBRACE:
+            print("Switch statement missing close brace '}'")
+            raise Exception()
+        
+        return Switch(test_val, cases)
+
+    def parse_cases(self) -> list[Case]:
+        '''
+        Cases : Case Cases
+               | Case
+               | DEFAULT COLON Casebody
+        '''
+        if self.debug_mode: print("Getting switch cases")
+
+        toks: list[Token] = self.lexer.peek_tokens(2)
+        if toks[0] is None:
+            print("Unexpected end of file ...")
+            raise Exception()
+        elif toks[0].type == Token.TokenType.DEFAULT:
+            if not toks[1].type == Token.TokenType.COLON:
+                print("Default case missing colon ':'")
+                raise Exception()
+            self.lexer.pop_tokens(2)
+            return [Case(None, self.parse_case_body(True))]
+        elif toks[0].type == Token.TokenType.CASE:
+            c: Case = self.parse_case()
+            tok: Token = self.lexer.peek_next()
+            if tok is None:
+                print("Unexpected end of file ...")
+                raise Exception()
+            elif tok.type == Token.TokenType.CASE or tok.type == Token.TokenType.DEFAULT:
+                cases: list[Case] = self.parse_cases()
+                cases.insert(0, c)
+                return cases
+            else: return [c]
+        else:
+            print("Expected 'case' or 'default' in switch block")
+            raise Exception()
+
+    
+    def parse_case(self) -> Case:
+        '''
+        Case : CASE Expression COLON CaseBody
+        '''
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.CASE:
+            print("Case missing 'case' keyword")
+            raise Exception()
+        
+        val: Expression = self.parse_expression()
+
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.COLON:
+            print("Case missing colon ':'")
+            raise Exception()
+        
+        body: Body = self.parse_case_body(False)
+        return Case(val, body)
+
+    def parse_case_body(self, isDefault: bool) -> CaseBody:
+        '''
+        CaseBody : BREAK SEMICOLON
+                  | Return
+                  | Statement CaseBody
+                  | empty
+        '''
+        if self.debug_mode: print("Case Body check")
+        tok: Token = self.lexer.peek_next()
+        if tok is None:
+            print("Reached end of program unexpectedly ...")
+            raise Exception()
+        elif isDefault:
+            if tok.type == Token.TokenType.CASE or tok.type == Token.TokenType.DEFAULT:
+                print("'default' must be final case in switch block!")
+                raise Exception()
+            elif tok.type == Token.TokenType.RBRACE: return CaseBody([])
+        elif tok.type == Token.TokenType.CASE or tok.type == Token.TokenType.DEFAULT: return None # Next case is coming up
+
+        if tok.type == Token.TokenType.BREAK:
+            self.lexer.pop_token()
+            tok: Token = self.lexer.next_token()
+            if tok is None or not tok.type == Token.TokenType.SEMICOLON:
+                print("Expected semicolon ';' after break statement")
+                raise Exception()
+            return CaseBody([Statement(Break())])
+        elif tok.type == Token.TokenType.RETURN:
+            ret: Return = self.parse_return()
+            return CaseBody([Statement(ret)])
+
+        statement: Statement = self.parse_statement()
+        body: CaseBody = self.parse_case_body(isDefault)
+        if body is None: return Body([statement])
+        else:
+            body.statements.insert(0, statement)
+            return body
 
     def parse_conditions(self) -> Conditions:
         '''

@@ -7,7 +7,7 @@ if __name__ == '__main__':
     content: str = file.read().strip()
     file.close()
 
-    lex = Lexer(content)
+    lex = Lexer(content, True)
     
     parser = Parser(lex)
     program: Program = parser.parse()
