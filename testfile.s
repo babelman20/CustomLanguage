@@ -1,18 +1,22 @@
-section .data
-    hello db 'Hello, World!',10,0    ; The string to print, null-terminated
-    helloLen equ $ - hello
+.section .rodata
+	.globl myVar
+	myVar:
+		.byte 1
 
-section .text
-    global _start                  ; Linker needs this to find the entry point
+	.globl myVar2
+	myVar2:
+		.short 2
 
-_start:
-    mov edx, helloLen                    ; Message length
-    mov ecx, hello                 ; Message to write
-    mov ebx, 1                     ; File descriptor (stdout)
-    mov eax, 4                     ; System call number (sys_write)
-    int 0x80                       ; Call kernel
+	myVar3:
+		.int 3
 
-    ; Exit
-    mov eax, 1                     ; System call number (sys_exit)
-    xor ebx, ebx                   ; Exit code 0
-    int 0x80                       ; Call kernel
+.section .data
+	.globl myVar4
+	myVar4:
+		.quad 4
+
+	myVar5:
+		.quad 5
+
+	myVar6:
+		.space 4

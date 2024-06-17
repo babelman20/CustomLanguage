@@ -2,6 +2,8 @@ from enum import Enum
 
 # Primitive types are u8, u16, u32, u64, i8, i16, i32, i64, f32, and f64
 
+primitive_types = ['u8', 'u16', 'u32', 'u64', 'i8', 'i16', 'i32', 'i64', 'f32', 'f64']
+
 class Operation(Enum):
     ADD = '+'
     SUB = '-'
@@ -69,15 +71,27 @@ class MemberAccess:
         return output
 
 class Expression:
-    def __init__(self, val = None, left: Expression = None, right: Expression = None, operation: Operation = None): # Val is a raw value or a function call
-        self.val = val
-        self.left = left
-        self.right = right
-        self.operation = operation
+    def __init__(self, values: list[Expression | MemberAccess | FunctionCall | str], ops: list[Operation] = []): # Val is a raw value or a function call
+        if (not type(values) is list and len(ops) > 0) or (not len(values)-1 == len(ops)):
+            print("Values/Operations mismatch !!!")
+            raise Exception()
+        self.values = values
+        self.ops = ops
 
     def __str__(self):
-        if not self.val is None: return str(self.val)
-        else: return f"({self.left} {self.operation.value} {self.right})"
+        output: str = "("
+        for i in range(len(self.ops)):
+            output += f"{self.values[i]} {self.ops[i].value} "
+        output += f"{self.values[-1]}"
+        output += ")"
+        return output
+    
+    def evaluate(self):
+        if len(self.values) == 1: return str(self.values[0])
+
+        # TODO: Implement actual evaluation of expressions
+        return str(self)
+
 
 class Condition:
     def __init__(self, left: Expression, right: Expression, operation: ConditionOperation):
@@ -118,7 +132,7 @@ class Parameter:
         return f'{self.type} {self.name}'
 
 class Variable:
-    def __init__(self, mods: list[str], type: str, name:str, init_val: Expression):
+    def __init__(self, mods: list[str], type: str, name: str, init_val: Expression | None):
         self.mods: list[str] = mods
         self.type: str = type
         self.name: str = name
@@ -129,9 +143,15 @@ class Variable:
         for m in self.mods:
             output += f"{m} "
         output += f"{self.type} {self.name}"
-        if self.init_val:
+        if self.init_val is not None:
             output += f" = {self.init_val}"
         return output
+    
+    def get_reserve_size(self) -> int:
+        if self.type in ['u8','i8']: return 1
+        elif self.type in ['u16','i16']: return 2
+        elif self.type in ['u32','i32','f32']: return 4
+        else: return 8
 
 class Statement:
     def __init__(self, statement):
@@ -331,7 +351,7 @@ class ClassBody:
 
 class Class:
     def __init__(self, mods: list[str], name: str, extension: str, body: ClassBody):
-        self.member_vars: list[str] = mods
+        self.mods: list[str] = mods
         self.name: str = name
         self.extension: str = extension
         self.body: ClassBody = body
