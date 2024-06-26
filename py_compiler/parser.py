@@ -7,7 +7,7 @@ class Parser:
         self.lexer: Lexer = lexer
         self.debug_mode: bool = debug_mode
 
-    def parse(self) -> Program:
+    def parse_class(self) -> Class:
         '''
         Program : Mods ClassDeclaration
         '''
@@ -18,7 +18,7 @@ class Parser:
         class_declaration: Class = self.parse_class_declaration()
         class_declaration.mods = mods
 
-        return Program(class_declaration)
+        return class_declaration
 
     def parse_mods(self) -> list[str]:
         '''
@@ -42,7 +42,7 @@ class Parser:
 
     def parse_class_declaration(self) -> Class:
         '''
-        ClassDeclaration : CLASS IDENTIFIER ClassExtension LBRACE ClassBody RBRACE
+        ClassDeclaration : CLASS IDENTIFIER Class Extension LBRACE ClassBody RBRACE
         '''
         if self.debug_mode: print("Class declaration")
         toks: list[Token] = self.lexer.peek_tokens(2)

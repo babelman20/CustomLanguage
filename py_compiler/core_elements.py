@@ -130,6 +130,12 @@ class Parameter:
 
     def __str__(self) -> str:
         return f'{self.type} {self.name}'
+    
+    def get_reserve_size(self) -> int:
+        if self.type in ['u8','i8']: return 1
+        elif self.type in ['u16','i16']: return 2
+        elif self.type in ['u32','i32','f32']: return 4
+        else: return 8
 
 class Variable:
     def __init__(self, mods: list[str], type: str, name: str, init_val: Expression | None):
@@ -146,6 +152,9 @@ class Variable:
         if self.init_val is not None:
             output += f" = {self.init_val}"
         return output
+    
+    def is_primitive_type(self) -> bool:
+        return self.type in primitive_types
     
     def get_reserve_size(self) -> int:
         if self.type in ['u8','i8']: return 1
@@ -355,6 +364,15 @@ class Class:
         self.name: str = name
         self.extension: str = extension
         self.body: ClassBody = body
+        self.size = 0
+
+    def get_size(self) -> int:
+        if self.size > 0: return self.size
+        self.size = 8  # Reserve space for function table pointer
+        for var in self.body.member_vars:
+            if 'static' not in var.mods: self.size += var.get_reserve_size()
+        return self.size
+
 
     def __str__(self) -> str:
         output = ''
@@ -367,9 +385,16 @@ class Class:
         return output
 
 class Program:
-    def __init__(self, klass: Class):
-        self.klass: Class = klass
+    def __init__(self):
+        self.nclasses = 0
+        self.classes: list[Class] = []
+        self.packages: list[str] = []
+
+    def add_class(self, klass: Class, pkg: str):
+        self.nclasses += 1
+        self.classes.append(klass)
+        self.packages.append(pkg)
     
-    def __str__(self) -> str:
-        output = '\n' + str(self.klass) + '\n'
-        return output
+    # def __str__(self) -> str:
+    #     output = '\n' + str(self.klass) + '\n'
+    #     return output
