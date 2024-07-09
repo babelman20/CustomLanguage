@@ -65,7 +65,8 @@ class Compiler:
         file.write('section .bss\n')
         self.depth += 1
         for var in self.klass.body.member_vars:
-            if 'static' in var.mods and 'mut' in var.mods and (not var.is_primitive_type() or var.init_val is None):
+            print(var.mods, var.name, var.is_primitive_type(), var.init_val)
+            if 'static' in var.mods and (not var.is_primitive_type() or ('mut' in var.mods and var.init_val is None)):
                 if 'public' in var.mods: file.write('  '*self.depth + f'global {var.name}\n')
                 file.write('  '*self.depth + f'{var.name} ')
 
