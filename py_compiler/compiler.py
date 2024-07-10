@@ -1,17 +1,21 @@
+import os
+
 from core_elements import *
 
 class Compiler:
 
-    def __init__(self, klass: Class, pkg: str, debug_mode: bool = False):
+    def __init__(self, path: str, klass: Class, filename: str, debug_mode: bool = False):
+        self.path = path
         self.klass: Class = klass
-        self.pkg = pkg
+        self.filename = filename
         self.depth = 0
 
         self.debug_mode: bool = debug_mode
 
     def compile(self):
-        print("Start compiling")
-        with open(f'{self.pkg}.{self.klass.name}.s', 'w') as file:
+        print(f"Start compiling: {os.path.join(os.path.join(self.path,'build/intermediaries'),self.filename)}.s")
+        with open(f"{os.path.join(os.path.join(self.path,'build/intermediaries'),self.filename)}.s", 'w') as file:
+            self.filename = self.filename.replace('.','_')
             self.build_readonly_data_section(file)
             self.build_data_section(file)
             self.build_bss_section(file)
@@ -65,7 +69,6 @@ class Compiler:
         file.write('section .bss\n')
         self.depth += 1
         for var in self.klass.body.member_vars:
-            print(var.mods, var.name, var.is_primitive_type(), var.init_val)
             if 'static' in var.mods and (not var.is_primitive_type() or ('mut' in var.mods and var.init_val is None)):
                 if 'public' in var.mods: file.write('  '*self.depth + f'global {var.name}\n')
                 file.write('  '*self.depth + f'{var.name} ')
@@ -104,8 +107,8 @@ class Compiler:
         
         if len(self.klass.body.constructors) == 0:
             # TODO: add default constructor
-            file.write('  '*self.depth + f'global {self.pkg}_{self.klass.name}_new\n')
-            file.write('  '*self.depth + f'{self.pkg}_{self.klass.name}_new:\n')
+            file.write('  '*self.depth + f'global {self.filename}_new\n')
+            file.write('  '*self.depth + f'{self.filename}_new:\n')
             file.write('  '*(self.depth+1) + 'ret\n\n')
         else:
             for i in range(len(self.klass.body.constructors)):
@@ -117,8 +120,8 @@ class Compiler:
         # TODO: allocate memory for the object using klass.size and store pointer in rax
 
         constructor = klass.body.constructors[i]
-        file.write('  '*self.depth + f'global {self.pkg}_{self.klass.name}_new_{i}\n')
-        file.write('  '*self.depth + f'{self.pkg}_{self.klass.name}_new_{i}:\n')
+        file.write('  '*self.depth + f'global {self.filename}_new_{i}\n')
+        file.write('  '*self.depth + f'{self.filename}_new_{i}:\n')
 
         self.depth += 1
         self.build_function_body(file, constructor.params, constructor.body, None)
@@ -128,8 +131,8 @@ class Compiler:
     def build_functions(self, file):
         for function in self.klass.body.functions:
             if 'public' in function.mods: 
-                file.write('  '*self.depth + f'global {self.pkg}_{self.klass.name}_{function.name}\n')
-            file.write('  '*self.depth + f'{self.pkg}_{self.klass.name}_{function.name}:\n')
+                file.write('  '*self.depth + f'global {self.filename}_{function.name}\n')
+            file.write('  '*self.depth + f'{self.filename}_{function.name}:\n')
             self.depth += 1
             self.build_function_body(file, function.params, function.body, function.return_type)
             file.write('\n\n')

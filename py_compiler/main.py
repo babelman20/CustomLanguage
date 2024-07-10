@@ -1,26 +1,57 @@
+import sys
+import os
+
 from core_elements import Program
 from lexer import Lexer
 from parser import Parser
 from compiler import Compiler
 
+def getAllFiles(dirpath):
+    file_list = []
+    for root, dirs, files in os.walk(dirpath):
+        for file in files:
+            file_list.append(os.path.join(root,file))
+    return file_list
+
 if __name__ == '__main__':
 
-    paths = ['CustomLang/testfile.lang']
+    args = sys.argv[1:]
+    if not len(args) == 1: exit()
+
+    dirpath = args[0]
+    if not os.path.isdir(dirpath): exit()
+
+    libs = [(f[f.find('/libs/')+6:],f) for f in getAllFiles(dirpath+'/libs')] if os.path.isdir(args[0] + '/libs') else []
+    src = [(f[f.find('/src/')+5:],f) for f in getAllFiles(dirpath+'/src')] if os.path.isdir(args[0] + '/src') else []
+
+    paths = libs + src
+
+    print(paths)
+
+    if not os.path.isdir(dirpath+'/build'):
+        os.mkdir(dirpath+'/build')
+
+    if not os.path.isdir(dirpath+'/build/intermediaries'):
+        os.mkdir(dirpath+'/build/intermediaries')
+
     program: Program = Program()
 
-    for path in paths:
+    for filename, path in paths:
         lastslash = path.rfind('/')
-        pkg = path[:lastslash].replace('/','.')
-        file = open(path)
+        filename = filename.replace('/','.')
 
-        content: str = file.read().strip()
-        file.close()
+        print(dirpath+'/build/intermediaries/'+filename.replace('.lang','.s'))
+        if not os.path.isfile(dirpath+'/build/intermediaries/'+filename.replace('.lang','.s')):
+            file = open(path)
 
-        lex = Lexer(content)
-        
-        parser = Parser(lex)
-        program.add_class(parser.parse_class(), pkg)
+            content: str = file.read().strip()
+            file.close()
+
+            lex = Lexer(content)
+            
+            parser = Parser(lex)
+            program.add_class(parser.parse_class(), filename.replace('.lang',''))
 
     for i in range(program.nclasses):
-        compiler = Compiler(program.classes[i], program.packages[i], True)
+        compiler = Compiler(dirpath, program.classes[i], program.packages[i], True)
         compiler.compile()

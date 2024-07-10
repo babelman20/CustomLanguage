@@ -14,10 +14,10 @@ section .data
   myVar5 dd 5
 
 section .bss
-  myVar6 resb 1
+  myVar6 resq 1
 
   global myVar8
-  myVar8 resq 1
+  myVar8 resb 1
 
 section .text
   global CustomLang_MyClass_new_0

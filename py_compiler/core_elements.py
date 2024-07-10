@@ -1,8 +1,8 @@
 from enum import Enum
 
-# Primitive types are u8, u16, u32, u64, i8, i16, i32, i64, f32, and f64
+# Primitive types are char, u8, u16, u32, u64, i8, i16, i32, i64, f32, and f64
 
-primitive_types = ['u8', 'u16', 'u32', 'u64', 'i8', 'i16', 'i32', 'i64', 'f32', 'f64']
+primitive_types = ['char', 'u8', 'u16', 'u32', 'u64', 'i8', 'i16', 'i32', 'i64', 'f32', 'f64']
 
 class Operation(Enum):
     ADD = '+'
@@ -157,7 +157,7 @@ class Variable:
         return self.type in primitive_types
     
     def get_reserve_size(self) -> int:
-        if self.type in ['u8','i8']: return 1
+        if self.type in ['char','u8','i8']: return 1
         elif self.type in ['u16','i16']: return 2
         elif self.type in ['u32','i32','f32']: return 4
         else: return 8
@@ -200,6 +200,13 @@ class Return:
     def __str__(self) -> str:
         if self.ret_val: return f"return {self.ret_val};"
         return "return;"
+    
+class Asm:
+    def __init__(self, content: str):
+        self.content = content
+    
+    def __str__(self) -> str:
+        return "asm \{\n" + self.content + "\n}\n"
     
 class VariableUpdate:
     def __init__(self, name: str, op: VariableSetOperation, val: Expression):

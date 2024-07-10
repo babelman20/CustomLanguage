@@ -466,6 +466,7 @@ class Parser:
                    | VariableUpdate SEMICOLON (IDENTIFIER (ADD|SUB|MULT|DIV|MOD|empty)SET or INC|DEC IDENTIFIER or IDENTIFIER INC|DEC)
                    | Return
                    | BREAK SEMICOLON
+                   | AsmBlock
         '''
         if self.debug_mode: print("Statment check")
 
@@ -492,6 +493,8 @@ class Parser:
             return Statement(Break())
         elif toks[0].type == Token.TokenType.RETURN:
            return Statement(self.parse_return())
+        elif toks[0].type == Token.TokenType.ASM:
+            return Statement(self.parse_asm_block())
         elif toks[0].type == Token.TokenType.INC or toks[0].type == Token.TokenType.DEC:
             var_update = self.parse_variable_update()
             tok: Token = self.lexer.next_token()
@@ -560,6 +563,30 @@ class Parser:
             print("Expected semicolon ';' after return statement")
             raise Exception()
         return Return(val)
+    
+    def parse_asm_block(self) -> Asm:
+        '''
+        AsmBlock: ASM LBRACE QUOTE RBRACE 
+        '''
+        toks: list[Token] = self.lexer.next_tokens(4)
+        if toks[0] is None or not toks[0].type == Token.TokenType.ASM:
+            print("How did we access asm block with no asm ...")
+            raise Exception()
+        
+        if toks[1] is None or not toks[1].type == Token.TokenType.LBRACE:
+            print("Asm block missing open brace '{'")
+            raise Exception()
+        
+        if toks[2] is None or not toks[2].type == Token.TokenType.QUOTE:
+            print("Asm block missing content")
+            raise Exception()
+        
+        if toks[3] is None or not toks[3].type == Token.TokenType.RBRACE:
+            print("Asm block missing close brace '}'")
+            raise Exception()
+        
+        return Asm(toks[2].content)
+
 
     def parse_if_block(self) -> If:
         '''
