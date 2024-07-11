@@ -1,0 +1,12 @@
+public class array<T> {
+
+    u32 length;
+    u64 valuesPtr;
+
+    public constructor(u32 len) {
+        length = len;
+        valuesPtr = Allocator.malloc(sizeof(T) * len);
+
+        array<i8> arr = new array<i8>(4);
+    }
+}

@@ -39,9 +39,9 @@ if __name__ == '__main__':
     for filename, path in paths:
         lastslash = path.rfind('/')
         filename = filename.replace('/','.')
-
-        print(dirpath+'/build/intermediaries/'+filename.replace('.lang','.s'))
+        
         if not os.path.isfile(dirpath+'/build/intermediaries/'+filename.replace('.lang','.s')):
+            print("Parsing:", dirpath+'/build/intermediaries/'+filename.replace('.lang','.s'))
             file = open(path)
 
             content: str = file.read().strip()

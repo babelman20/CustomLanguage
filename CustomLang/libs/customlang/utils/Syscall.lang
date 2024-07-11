@@ -1,0 +1,16 @@
+public abstract class Syscall {
+
+    public static i32 func read(u32 fd, char[] buffer, u64 count) {
+        mut u32 result = 0;
+        asm {
+            "
+            mov rax, 0x00
+            mov edi, [rbp+16]
+            mov rsi, [rbp+20]
+            mov rdx, [rbp+28]
+            syscall
+            "
+        }
+        return result;
+    } 
+}

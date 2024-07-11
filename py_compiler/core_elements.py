@@ -43,6 +43,25 @@ class Expression:
 class MemberAccess:
     pass
 
+class ConstructorCall:
+    def __init__(self, name: str, typedef: list[str], args: list[Expression]):
+        self.name = name
+        self.typedef = typedef
+        self.args = args
+
+    def __str__(self):
+        output = f"new {self.name}"
+        if len(self.typedef) > 0:
+            output += '<'
+            for i in range(len(self.typedef)-1):
+                output += f'{self.typedef[i]}, '
+            output += f'{self.typedef[-1]}>'
+        for i in range(len(self.args)-1):
+            output += f"{self.args[i]}, "
+        if len(self.args) > 0: output += str(self.args[-1])
+        output += ")"
+        return output
+
 class FunctionCall:
     def __init__(self, name: str, args: list[Expression]):
         self.name = name
@@ -57,15 +76,12 @@ class FunctionCall:
         return output
 
 class MemberAccess:
-    def __init__(self, name: str, func: FunctionCall = None, next: MemberAccess = None): # Val is either a function, another member access, or None (representing a member variable)
+    def __init__(self, name: str | FunctionCall | ConstructorCall = None, next: MemberAccess = None): # Val is either a function, another member access, or None (representing a member variable)
         self.name = name
-        self.func = func
         self.next = next
 
     def __str__(self):
-        output = ""
-        if not self.func is None: output = str(self.func)
-        else: output = str(self.name)
+        output = str(self.name)
 
         if not self.next is None: output += f'.{self.next}'
         return output
@@ -138,9 +154,10 @@ class Parameter:
         else: return 8
 
 class Variable:
-    def __init__(self, mods: list[str], type: str, name: str, init_val: Expression | None):
+    def __init__(self, mods: list[str], type: str, typedef: list[str], name: str, init_val: Expression | None):
         self.mods: list[str] = mods
         self.type: str = type
+        self.typedef: list[str] = typedef
         self.name: str = name
         self.init_val = init_val
 
@@ -366,9 +383,10 @@ class ClassBody:
         return output
 
 class Class:
-    def __init__(self, mods: list[str], name: str, extension: str, body: ClassBody):
+    def __init__(self, mods: list[str], name: str, typedefs: list[str], extension: str, body: ClassBody):
         self.mods: list[str] = mods
         self.name: str = name
+        self.typedefs: list[str] = typedefs
         self.extension: str = extension
         self.body: ClassBody = body
         self.size = 0

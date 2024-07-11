@@ -42,10 +42,10 @@ class Parser:
 
     def parse_class_declaration(self) -> Class:
         '''
-        ClassDeclaration : CLASS IDENTIFIER Class Extension LBRACE ClassBody RBRACE
+        ClassDeclaration : CLASS IDENTIFIER Class Typedef Extension LBRACE ClassBody RBRACE
         '''
         if self.debug_mode: print("Class declaration")
-        toks: list[Token] = self.lexer.peek_tokens(2)
+        toks: list[Token] = self.lexer.next_tokens(2)
         if toks[0] is None or not toks[0].type == Token.TokenType.CLASS:
             print("Class declaration missing 'class' keyword")
             raise Exception()
@@ -53,17 +53,46 @@ class Parser:
             print("Class declaration missing a name")
             raise Exception()
         
-        self.lexer.pop_tokens(2)
+        typedefs: list[str] = self.parse_typedef()
         extension: str = self.parse_class_extension()
-
+        
         tok: Token = self.lexer.next_token()
         if tok is None or not tok.type == Token.TokenType.LBRACE:
             print("Class body is missing open brace '{'")
             raise Exception()
         
         body: ClassBody = self.parse_class_body()
-        return Class(None, toks[1].content, extension, body)
+        return Class(None, toks[1].content, typedefs, extension, body)
+    
+    def parse_typedef(self) -> list[str]:
+        '''
+        Typedef : LT IDENTIFIER (COMMA IDENTIFIER)* GT
+        '''
+        toks: list[Token] = self.lexer.peek_tokens(2)
+        if toks[0] is None or toks[0].type is not Token.TokenType.LT: return None
+        if toks[1] is None or toks[1].type is not Token.TokenType.IDENTIFIER:
+            print("Typedef not given a name ... ")
+            raise Exception()
+        typedefs: list[str] = [toks[1].content]
+        
+        self.lexer.pop_tokens(2)
 
+        toks: list[Token] = self.lexer.peek_tokens(2)
+        while toks[0] is not None and toks[0].type is Token.TokenType.COMMA:
+            if toks[1] is None or toks[1].type is not Token.TokenType.IDENTIFIER:
+                print("Typedef not given a name ... ")
+                raise Exception()
+            typedefs.append(toks[1].content)
+            self.lexer.pop_tokens(2)
+            toks = self.lexer.peek_tokens(2)
+        
+        tok: Token = self.lexer.next_token()
+        if tok is None or tok.type is not Token.TokenType.GT:
+            print("Typedef missing close '>'")
+            raise Exception()
+        
+        return typedefs
+        
     def parse_class_extension(self) -> str:
         '''
         ClassExtension : EXTENDS IDENTIFIER | empty
@@ -169,22 +198,28 @@ class Parser:
         '''
         VariableDeclaration : IDENTIFIER IDENTIFIER
                              | IDENTIFIER IDENTIFIER Initialization
+                             | IDENTIFIER Typedef IDENTIFIER
+                             | IDENTIFIER Typedef IDENTIFIER Initialization
         '''
         if self.debug_mode: print("Variable Declaration")
         
-        toks: list[Token] = self.lexer.next_tokens(2)
-        if toks[0] is None or toks[1] is None:
-            print("Unexpected end of file ...")
-            raise Exception()
-        
-        if not toks[0].type == Token.TokenType.IDENTIFIER:
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.IDENTIFIER:
             print("Variable declaration missing type")
             raise Exception()
-        if not toks[1].type == Token.TokenType.IDENTIFIER:
+        var_type: str = tok.content
+        
+        tok: Token = self.lexer.peek_next()
+        if not tok is None and tok.type == Token.TokenType.LT:
+            typedef: list[str] = self.parse_typedef()
+        else:
+            typedef = []
+
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.IDENTIFIER:
             print("Variable declaration missing name")
             raise Exception()
-        var_type: str = toks[0].content
-        name: str = toks[1].content
+        name: str = tok.content
 
         tok: Token = self.lexer.peek_next()
         if not tok is None and tok.type == Token.TokenType.SET:
@@ -192,7 +227,7 @@ class Parser:
         else:
             init_val = None
 
-        return Variable([], var_type, name, init_val)
+        return Variable([], var_type, typedef, name, init_val)
 
     def parse_initialization(self) -> Expression:
         '''
@@ -300,8 +335,7 @@ class Parser:
         tok: Token = self.lexer.peek_next()
         if tok is None: return None
         elif tok.type == Token.TokenType.RPAREN: return []
-        elif tok.type == Token.TokenType.IDENTIFIER: return self.parse_args()
-        else: return None
+        else: return self.parse_args()
 
     def parse_args(self) -> list[Expression]:
         '''
@@ -312,18 +346,14 @@ class Parser:
         exp: Expression = self.parse_expression()
 
         tok: Token = self.lexer.peek_next()
-        if tok is None: return [exp]
-        elif tok.type == Token.TokenType.COMMA:
+        if tok.type == Token.TokenType.COMMA:
             self.lexer.pop_token()
             return [exp, self.parse_args()]
-        
-        print("Unexpected end of arguments ...")
-        raise Exception()
+        return [exp]
 
     def parse_expression(self) -> Expression:
         '''
-        Expression : ConstructorCall
-                    | MemberAccess
+        Expression : MemberAccess
                     | VAL
                     | LPAREN Expression RPAREN ADD|SUB|MULT|DIV|MOD Expression
                     | Expression ADD|SUB|MULT|DIV|MOD Expression
@@ -345,9 +375,7 @@ class Parser:
                     print("Expected close parenthesis ')'")
                     raise Exception()
                 self.lexer.pop_token()
-            elif tok.type == Token.TokenType.NEW:
-                values.append(self.parse_constructor_call())
-            elif tok.type == Token.TokenType.IDENTIFIER:
+            elif tok.type == Token.TokenType.NEW or tok.type == Token.TokenType.IDENTIFIER:
                 values.append(self.parse_member_access())
             elif tok.type == Token.TokenType.VAL:
                 self.lexer.pop_token()
@@ -375,46 +403,83 @@ class Parser:
             tok: Token = self.lexer.peek_next()
         
         return Expression(values, operations)
-                
-        
 
     def parse_member_access(self) -> MemberAccess:
         '''
         MemberAccess : IDENTIFIER DOT MemberAccess
-                      | FunctionCall
+                      | FunctionCall DOT MemberAccess
+                      | ConstructorCall DOT MemberAccess
                       | IDENTIFIER
+                      | FunctionCall
+                      | ConstructorCall
         '''
         if self.debug_mode: print("Member Access check")
         toks: list[Token] = self.lexer.peek_tokens(2)
-        if toks[0] is None or not toks[0].type == Token.TokenType.IDENTIFIER:
+        if toks[0] is None:
+            print("Unexpected end of file ...")
+            raise Exception()
+        
+        if toks[0].type == Token.TokenType.NEW:  # Constructor call
+            content = self.parse_constructor_call()
+        elif toks[0].type == Token.TokenType.IDENTIFIER:
+            if toks[1] is None:
+                print("Unexpected end of file ...")
+                raise Exception()
+            
+            if toks[1].type == Token.TokenType.LPAREN:
+                content = self.parse_function_call()
+            else:
+                content = toks[0].content
+                self.lexer.pop_token()
+        else:
             print("Member access has no name ...")
             raise Exception()
-        if toks[1] is None or not (toks[1].type == Token.TokenType.DOT or toks[1] == Token.TokenType.LPAREN):
+            
+        tok = self.lexer.peek_next()
+        if tok is not None and tok.type == Token.TokenType.DOT:  # Deeper access
             self.lexer.pop_token()
-            return MemberAccess(toks[0].content)
-        
-        if toks[1].type == Token.TokenType.DOT:
-            self.lexer.pop_tokens(2)
-            return MemberAccess(toks[0].content, None, self.parse_member_access())
-        
-        if toks[1].type == Token.TokenType.LPAREN:
-            return MemberAccess(toks[0].content, self.parse_function_call(), self.parse_member_access())
-        
-        print("Member access parsing failed ...")
-        return None
+            next = self.parse_member_access()
+        else:
+            next = None
+
+        return MemberAccess(content, next)
     
-    def parse_constructor_call(self) -> FunctionCall:
+    def parse_constructor_call(self) -> ConstructorCall:
         '''
-        ConstructorCall : NEW FunctionCall
+        ConstructorCall : NEW IDENTIFIER LPAREN StartArgs RPAREN
+                        | NEW IDENTIFIER Typedef LPAREN StartArgs RPAREN
         '''
         if self.debug_mode: print("Constructor Call check")
-        tok: Token = self.lexer.next_token()
-        if tok is None or not tok.type == Token.TokenType.NEW:
+        toks: list[Token] = self.lexer.next_tokens(2)
+        if toks[0] is None or not toks[0].type == Token.TokenType.NEW:
             print("Constructor call has no 'new' keyword")
             raise Exception()
-        self.lexer.pop_token()
+        if toks[1] is None or not toks[1].type == Token.TokenType.IDENTIFIER:
+            print("Constructor call has no name")
+            raise Exception()
+        name = toks[1].content
         
-        return self.parse_function_call()
+        tok: Token = self.lexer.peek_next()
+        if tok is None:
+            print("Unexpected end of file")
+            raise Exception()
+        elif tok.type == Token.TokenType.LT:
+            typedef: list[str] = self.parse_typedef()
+        else:
+            typedef = None
+
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.LPAREN:
+            print("Constructor call missing open parenthesis '('")
+            raise Exception()
+        
+        args: list[Expression] = self.parse_start_args()
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.RPAREN:
+            print("Constructor call has missing close parenthesis ')'")
+            raise Exception()
+        
+        return ConstructorCall(name, typedef, args)
 
     def parse_function_call(self) -> FunctionCall:
         '''
@@ -443,15 +508,18 @@ class Parser:
               | empty
         '''
         if self.debug_mode: print("Body check")
+
+        body = Body([])
         tok: Token = self.lexer.peek_next()
+        while tok is not None and not tok.type == Token.TokenType.RBRACE:
+            statement: Statement = self.parse_statement()
+            body.statements.append(statement)
+            tok: Token = self.lexer.peek_next()
+
         if tok is None:
             print("Reached end of program unexpectedly ...")
             raise Exception()
-        elif tok.type == Token.TokenType.RBRACE: return Body([]) # End of body
-
-        statement: Statement = self.parse_statement()
-        body = self.parse_body()
-        body.statements.insert(0, statement)
+        
         return body
     
     def parse_statement(self) -> Statement:
@@ -462,7 +530,7 @@ class Parser:
                    | ForEachBlock
                    | Switch
                    | FunctionCall (IDENTIFIER LPAREN or IDENTIFIER DOT)
-                   | VariableDeclaration (IDENTIFIER IDENTIFIER)
+                   | VariableDeclaration (IDENTIFIER IDENTIFIER or IDENTIFIER Typedef IDENTIFIER)
                    | VariableUpdate SEMICOLON (IDENTIFIER (ADD|SUB|MULT|DIV|MOD|empty)SET or INC|DEC IDENTIFIER or IDENTIFIER INC|DEC)
                    | Return
                    | BREAK SEMICOLON
@@ -506,7 +574,7 @@ class Parser:
             if toks[0].type == Token.TokenType.IDENTIFIER:
                 if toks[1].type == Token.TokenType.LPAREN or toks[1].type == Token.TokenType.DOT:
                     return Statement(self.parse_function_call())
-                elif toks[1].type == Token.TokenType.IDENTIFIER:
+                elif toks[1].type == Token.TokenType.IDENTIFIER or toks[1].type == Token.TokenType.LT:
                     var_delcr = self.parse_variable_declaration()
                     tok: Token = self.lexer.next_token()
                     if tok is None or not tok.type == Token.TokenType.SEMICOLON:

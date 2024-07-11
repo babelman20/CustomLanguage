@@ -1,0 +1,25 @@
+public class MyClass {
+
+    public static u8 myVar = 1;
+    public static u16 myVar2 = 2;
+    static u32 myVar3 = 3;
+
+    public static mut u64 myVar4 = 4;
+    static mut f32 myVar5 = 5;
+
+    public static SomeClass myVar6;
+    static mut i8 myVar8;
+    
+
+    public constructor() {
+
+    }
+
+    public u8 func myFunction1() {
+
+    }
+
+    public f32 func myFunction2(i8 arg1) {
+        
+    }
+}

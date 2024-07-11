@@ -28,7 +28,7 @@ class Token:
         RETURN = r'\breturn\b'
         COMMENT = r'//.*\n|/\*.*\*/'
         VAL = r'\'\\?.\'|0x[0-9A-Fa-f]{1,8}\b|0o[0-7]{1,22}\b|0b[01]{1,64}\b|\d+\.\d*\b|\d*\.\d+\b|\d+\b'
-        IDENTIFIER = r'[a-zA-Z_]\w*'
+        IDENTIFIER = r'[a-zA-Z_]\w*(\[\])?'
         QUOTE = r'\"[^\"]*\"'
         LBRACE = r'{'
         RBRACE = r'}'

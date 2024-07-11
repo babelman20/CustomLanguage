@@ -14,21 +14,39 @@ section .data
   myVar5 dd 5
 
 section .bss
+  global myVar6
   myVar6 resq 1
 
-  global myVar8
   myVar8 resb 1
 
 section .text
   global testfile_new_0
   testfile_new_0:
+    push rbp
+    mov rbp, rsp
+
+
+    mov rsp, rbp
+    pop rbp
     ret
 
   global testfile_myFunction1
   testfile_myFunction1:
+    push rbp
+    mov rbp, rsp
 
+
+    mov rsp, rbp
+    pop rbp
+    ret
 
   global testfile_myFunction2
   testfile_myFunction2:
+    push rbp
+    mov rbp, rsp
 
+
+    mov rsp, rbp
+    pop rbp
+    ret
 
