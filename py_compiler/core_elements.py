@@ -14,6 +14,9 @@ class Operation(Enum):
     BIT_OR = '|'
     BIT_XOR = '^'
     BIT_NOT = '~'
+    BIT_LSHIFT = '<<'
+    BIT_RSHIFT = '>>'
+    BRACKETS = '[]'
 
 class ConditionOperation(Enum):
     LEQ = '<='
@@ -27,15 +30,25 @@ class VariableSetOperation(Enum):
     SET = '='
     INC = '++'
     DEC = '--'
-    ADD = '+='
-    SUB = '-='
-    MULT = '*='
-    DIV = '/='
-    MOD = '%='
-    BIT_AND = '&='
-    BIT_OR = '|='
-    BIT_XOR = '^='
-    BIT_NOT = '~='
+    SET_ADD = '+='
+    SET_SUB = '-='
+    SET_MULT = '*='
+    SET_DIV = '/='
+    SET_MOD = '%='
+    SET_BIT_AND = '&='
+    SET_BIT_OR = '|='
+    SET_BIT_XOR = '^='
+    SET_BIT_NOT = '~='
+    SET_BIT_LSHIFT = '<<='
+    SET_BIT_RSHIFT = '>>='
+
+all_operations = [Operation.ADD, Operation.SUB, Operation.MULT, Operation.DIV, Operation.MOD, Operation.BIT_AND, Operation.BIT_OR, Operation.BIT_XOR, Operation.BIT_NOT, Operation.BIT_LSHIFT, Operation.BIT_RSHIFT, Operation.BRACKETS,
+                    ConditionOperation.LEQ, ConditionOperation.LEQ, ConditionOperation.GEQ, ConditionOperation.GT ,ConditionOperation.NEQ, ConditionOperation.EQ,
+                    VariableSetOperation.SET, VariableSetOperation.INC, VariableSetOperation.DEC, VariableSetOperation.SET_ADD, VariableSetOperation.SET_SUB, VariableSetOperation.SET_MULT, VariableSetOperation.SET_MOD,
+                    VariableSetOperation.SET_BIT_AND, VariableSetOperation.SET_BIT_OR, VariableSetOperation.SET_BIT_XOR, VariableSetOperation.SET_BIT_NOT, VariableSetOperation.SET_BIT_LSHIFT, VariableSetOperation.SET_BIT_RSHIFT]
+
+expression_operations = [Operation.ADD, Operation.SUB, Operation.MULT, Operation.DIV, Operation.MOD, Operation.BIT_AND, Operation.BIT_OR, Operation.BIT_XOR, Operation.BIT_NOT, Operation.BIT_LSHIFT, Operation.BIT_RSHIFT,
+                    ConditionOperation.LEQ, ConditionOperation.LEQ, ConditionOperation.GEQ, ConditionOperation.GT ,ConditionOperation.NEQ]
 
 class Expression:
     pass

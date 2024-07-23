@@ -6,8 +6,6 @@ public class array<T> {
     public constructor(u32 len) {
         length = len;
         valuesPtr = Allocator.malloc(sizeof(T) * len);
-
-        array<i8> arr = new array<i8>(4);
     }
 
     public T func operator[](u32 index) {

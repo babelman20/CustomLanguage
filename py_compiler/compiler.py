@@ -20,7 +20,7 @@ class Compiler:
         self.print("Start compiling!")
         for klass, filename in zip(self.classes, self.filenames):
             # Only compile type-defined classes as-needed for specific variable instances (i.e. make separate array<int> and array<double> classes)
-            if len(klass.typedefs) > 0: continue
+            #if len(klass.typedefs) > 0: continue
             
             self.print(f"Start compiling: {os.path.join(os.path.join(self.path,'build/intermediaries'),filename)}.s")
             self.compile(klass, filename)
@@ -33,11 +33,11 @@ class Compiler:
         if not os.path.isfile(filepath):
             with open(filepath, 'w') as file:
                 filename = filename.replace('.','_')
-                self.build_imports(file, klass)
+                self.build_imports(file)
                 self.build_readonly_data_section(file, klass)
                 self.build_data_section(file, klass)
                 self.build_bss_section(file, klass)
-                self.build_text_section(file, klass)
+                self.build_text_section(file, klass, filename)
 
 
     # Insert immutable, static, primitive member variables
@@ -110,13 +110,12 @@ class Compiler:
         file.write('section .text\n')
         self.depth += 1
 
-        print(f"{klass.typedefs}")
-
         self.build_constructors(file, klass, filename)
         self.build_functions(file, klass, filename)
 
         self.depth -= 1
 
+    # Insert imports from file header
     def build_imports(self, file):
         # TODO: add extern file imports
         pass
@@ -141,25 +140,23 @@ class Compiler:
     
     # Set up object for all constructors
     def build_constructor(self, file, klass: Class, filename: str, i: int):
-        if self.debug_mode: print(f"Build constructor '{filename}_new_{i}'")
+        self.print(f"Build constructor '{filename}_new_{i}'")
 
         constructor = klass.body.constructors[i]
         file.write('  '*self.depth + f'global {filename}_new_{i}\n')
         file.write('  '*self.depth + f'{filename}_new_{i}:\n')
 
         self.depth += 1
-        file.write('  '*self.depth + 'push rbp\n')
-        file.write('  '*self.depth + 'mov rbp, rsp\n\n')
+        file.write('  '*self.depth + 'enter 0, 0\n')
 
         # TODO: allocate memory for the object using class size
 
-        self.build_body_block(file, constructor.body, None)
+        self.build_body_block(file, filename, constructor.body, None)
 
         # TODO: store object in rax
 
         file.write('\n')
-        file.write('  '*self.depth + 'mov rsp, rbp\n')
-        file.write('  '*self.depth + 'pop rbp\n')
+        file.write('  '*self.depth + 'leave\n')
         file.write('  '*self.depth + 'ret\n\n')
 
         self.depth -= 1
@@ -180,11 +177,9 @@ class Compiler:
     def build_function_body(self, file, filename: str, params: list[Variable], body: Body, return_type: str | None):
         base_depth = self.depth
 
-        print([p.type for p in params])
-
         # Set up base pointer
         file.write('  '*self.depth + 'enter 0, 0\n')
-
+        self.print(f'Return type: {return_type}')
         self.build_body_block(file, filename, body, return_type)
         file.write('\n')
 
@@ -196,7 +191,7 @@ class Compiler:
     def build_body_block(self, file, filename: str, body: Body, return_type: str | None):
         for statement in body.statements:
             statement = statement.statement
-            if self.debug_mode: print(f"Build statement '{type(statement)}'")
+            self.print(f"Build statement '{type(statement)}'")
             if type(statement) == If:
                 self.build_if_block(file, statement)
             elif type(statement) == While:

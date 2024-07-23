@@ -1,22 +1,32 @@
 NASM = nasm -f elf64
 LD = ld
 
+BUILDPATH = CustomLang/build/intermediaries/
+OUTPUTPATH = CustomLang/build/output/
+
 SRC = .s
 OBJ = .o
 
-SYSCALL = syscall
-TEST = testbrk
+ARRAY = customlang.utils.array
+SYSCALL = customlang.utils.Syscall
+TEST = testfile
 
-all: $(TEST)
+all: $(OUTPUTPATH)$(TEST) $(OUTPUTPATH)$(ARRAY)
 
-$(TEST): $(TEST)$(OBJ) $(SYSCALL)$(OBJ)
-	$(LD) $(TEST)$(OBJ) $(SYSCALL)$(OBJ) -o $(TEST)
+$(OUTPUTPATH)$(TEST): $(BUILDPATH)$(TEST)$(OBJ) $(BUILDPATH)$(SYSCALL)$(OBJ)
+	$(LD) $(BUILDPATH)$(TEST)$(OBJ) $(BUILDPATH)$(SYSCALL)$(OBJ) -o $(OUTPUTPATH)$(TEST)
 
-$(TEST)$(OBJ): $(TEST)$(SRC)
-	$(NASM) $(TEST)$(SRC) -o $(TEST)$(OBJ)
+$(BUILDPATH)$(TEST)$(OBJ): $(BUILDPATH)$(TEST)$(SRC)
+	$(NASM) $(BUILDPATH)$(TEST)$(SRC) -o $(BUILDPATH)$(TEST)$(OBJ)
 
-$(SYSCALL)$(OBJ): $(SYSCALL)$(SRC)
-	$(NASM) $(SYSCALL)$(SRC) -o $(SYSCALL)$(OBJ)
+$(OUTPUTPATH)$(ARRAY): $(BUILDPATH)$(ARRAY)$(OBJ)
+	$(LD) $(BUILDPATH)$(ARRAY)$(OBJ) -o $(OUTPUTPATH)$(ARRAY)
+
+$(BUILDPATH)$(ARRAY)$(OBJ): $(BUILDPATH)$(ARRAY)$(SRC)
+	$(NASM) $(BUILDPATH)$(ARRAY)$(SRC) -o $(BUILDPATH)$(ARRAY)$(OBJ)
+
+$(BUILDPATH)$(SYSCALL)$(OBJ): $(BUILDPATH)$(SYSCALL)$(SRC)
+	$(NASM) $(BUILDPATH)$(SYSCALL)$(SRC) -o $(BUILDPATH)$(SYSCALL)$(OBJ)
 
 clean:
-	rm -f $(SYSCALL)$(OBJ) $(TEST)$(OBJ) $(TEST)
+	rm -f $(BUILDPATH)$(SYSCALL)$(OBJ) $(BUILDPATH)$(TEST)$(OBJ) $(OUTPUTPATH)$(TEST) $(BUILDPATH)$(ARRAY)$(OBJ) $(OUTPUTPATH)$(ARRAY)

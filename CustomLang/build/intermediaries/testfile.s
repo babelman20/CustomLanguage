@@ -32,21 +32,15 @@ section .text
 
   global testfile_myFunction1
   testfile_myFunction1:
-    push rbp
-    mov rbp, rsp
+    enter 0, 0
 
-
-    mov rsp, rbp
-    pop rbp
+    leave
     ret
 
   global testfile_myFunction2
   testfile_myFunction2:
-    push rbp
-    mov rbp, rsp
+    enter 0, 0
 
-
-    mov rsp, rbp
-    pop rbp
+    leave
     ret
 

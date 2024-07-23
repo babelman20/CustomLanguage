@@ -4,11 +4,15 @@ section .bss
 section .text
   global customlang_utils_array_new_0
   customlang_utils_array_new_0:
-    push rbp
-    mov rbp, rsp
+    enter 0, 0
 
+    leave
+    ret
 
-    mov rsp, rbp
-    pop rbp
+  global customlang_utils_array_operator_BRACKETS
+  customlang_utils_array_operator_BRACKETS:
+    enter 0, 0
+
+    leave
     ret
 

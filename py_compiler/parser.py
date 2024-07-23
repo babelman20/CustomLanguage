@@ -246,11 +246,11 @@ class Parser:
         '''
         FunctionDeclaration : IDENTIFIER FUNCTION IDENTIFIER LPAREN StartParams RPAREN SEMICOLON
                              | IDENTIFIER FUNCTION IDENTIFIER LPAREN StartParams RPAREN LBRACE FunctionBody RBRACE
-                             | IDENTIFIER FUNCTION IDENTIFIER LPAREN StartParams RPAREN LBRACE FunctionBody RBRACE
+                             | IDENTIFIER FUNCTION OPERATOR Operation LPAREN StartParams RPAREN LBRACE FunctionBody RBRACE
         '''
         if self.debug_mode: print("Function Declaration")
         
-        toks: list[Token] = self.lexer.next_tokens(4)
+        toks: list[Token] = self.lexer.next_tokens(3)
         if toks[0] is None or not toks[0].type == Token.TokenType.IDENTIFIER:
             print("Function return type not specified")
             raise Exception()
@@ -258,12 +258,22 @@ class Parser:
         if toks[1] is None or not toks[1].type == Token.TokenType.FUNCTION:
             print("Function declaration not specified")
             raise Exception()
-        if toks[2] is None or not toks[2].type == Token.TokenType.IDENTIFIER:
+        if toks[2] is None:
             print("Function declaration missing name")
             raise Exception()
-        name: str = toks[2].content
+        elif toks[2].type == Token.TokenType.OPERATOR:
+            tok: Token = self.lexer.next_token()
+            if tok is None or not tok.content in [op.value for op in all_operations]:
+                print(f"Operator overloading requires real operation, not {tok.content}")
+                raise Exception()
+            name: str = 'operator_' + str(tok.type).removeprefix('TokenType.')
+        elif not toks[2].type == Token.TokenType.IDENTIFIER:
+            print("Function declaration missing name")
+            raise Exception()
+        else: name: str = toks[2].content
 
-        if toks[3] is None or not toks[3].type == Token.TokenType.LPAREN:
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.LPAREN:
             print("Function declaration missing open parenthesis '('")
             raise Exception()
                 
@@ -355,8 +365,8 @@ class Parser:
         '''
         Expression : MemberAccess
                     | VAL
-                    | LPAREN Expression RPAREN ADD|SUB|MULT|DIV|MOD Expression
-                    | Expression ADD|SUB|MULT|DIV|MOD Expression
+                    | LPAREN Expression RPAREN Operator Expression
+                    | Expression Operator Expression
         '''
         if self.debug_mode: print("Expression check")
         tok: Token = self.lexer.peek_next()
@@ -388,9 +398,9 @@ class Parser:
             if tok is None:
                 print("Reached unexpected end of file ...")
                 raise Exception()
-            elif not tok.type in [Token.TokenType.ADD, Token.TokenType.SUB, Token.TokenType.MULT, Token.TokenType.DIV, Token.TokenType.MOD]: break
+            elif not tok.content in [op.value for op in expression_operations]: break
 
-            for op in Operation:
+            for op in expression_operations:
                 if tok.content == op.value:
                     operations.append(op)
                     break
@@ -1057,7 +1067,7 @@ class Parser:
     
     def parse_variable_update(self):
         '''
-        VariableUpdate : IDENTIFIER (ADD|SUB|MULT|DIV|MOD|empty) SET Expression
+        VariableUpdate : IDENTIFIER (ADD|SUB|MULT|DIV|MOD|BIT_AND|BIT_OR|BIT_NOT|BIT_XOR|BIT_LSHIFT|BIT_RSHIFT|empty) SET Expression
                         | INC IDENTIFIER
                         | DEC IDENTIFIER
                         | IDENTIFIER INC
