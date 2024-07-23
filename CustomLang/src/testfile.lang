@@ -7,7 +7,7 @@ public class MyClass {
     public static mut u64 myVar4 = 4;
     static mut f32 myVar5 = 5;
 
-    public static SomeClass myVar6;
+    public static i32[] myVar6;
     static mut i8 myVar8;
     
 

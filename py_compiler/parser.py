@@ -658,24 +658,37 @@ class Parser:
 
     def parse_if_block(self) -> If:
         '''
-        IfBlock : IF LPAREN Conditions RPAREN LBRACE Block RBRACE
-                 | IF LPAREN Conditions RPAREN LBRACE Block RBRACE ELSE IfBlock
-                 | IF LPAREN Conditions RPAREN LBRACE Block RBRACE ElSE LBRACE Block RBRACE
-                 | IF LPAREN Conditions RPAREN LBRACE Block RBRACE ELSE Statement
-
-                 | IF LPAREN Conditions RPAREN Statement
-                 | IF LPAREN Conditions RPAREN Statement ELSE IfBlock
-                 | IF LPAREN Conditions RPAREN Statement Else LBRACE Block RBRACE
-                 | IF LPAREN Conditions RPAREN Statement ELSE Statement                
+        IfBlock : IF (CONSTEXPR) LPAREN Conditions RPAREN LBRACE Block RBRACE (ELSE IfBlock) (ELSE LBRACE Block RBRACE)
+                 | IF (CONSTEXPR) LPAREN Conditions RPAREN LBRACE Block RBRACE (ELSE IfBlock) (ELSE Statement)
+                 | IF (CONSTEXPR) LPAREN Conditions RPAREN Statement (ELSE IfBlock) (ELSE LBRACE Block RBRACE)
+                 | IF (CONSTEXPR) LPAREN Conditions RPAREN Statement (ELSE IfBlock) (ELSE Statement)            
         '''
         if self.debug_mode: print("If block check")
 
-        toks: list[Token] = self.lexer.next_tokens(2)
-        if toks[0] is None or toks[1] is None:
+        tok: Token = self.lexer.next_token()
+        if tok is None:
             print("Unexpected end of file")
             raise Exception()
-        elif not toks[0].type == Token.TokenType.IF or not toks[1].type == Token.TokenType.LPAREN:
-            print(f"Invalid statement: {toks[0].content} {toks[1].content}")
+        elif not tok.type == Token.TokenType.IF:
+            print(f"Not an IF statement! {tok.content}")
+            raise Exception()
+        
+        constexpr = False
+
+        tok: Token = self.lexer.peek_next()
+        if tok is None:
+            print("Unexpected end of file")
+            raise Exception()
+        elif tok.type == Token.TokenType.CONSTEXPR:
+            constexpr = True
+            self.lexer.pop_token()
+    
+        tok: Token = self.lexer.next_token()
+        if tok is None:
+            print("Unexpected end of file")
+            raise Exception()
+        elif not tok.type == Token.TokenType.LPAREN:
+            print(f"IF statement has no condition!")
             raise Exception()
         
         conditions: Conditions = self.parse_conditions()
@@ -696,7 +709,7 @@ class Parser:
                 raise Exception()
 
         toks: list[Token] = self.lexer.peek_tokens(2)
-        if toks[0] is None or not toks[0].type == Token.TokenType.ELSE: return If(conditions, content, [], None)
+        if toks[0] is None or not toks[0].type == Token.TokenType.ELSE: return If(constexpr, conditions, content, [], None)
         self.lexer.pop_token()
 
         if toks[1] is None:
@@ -709,7 +722,7 @@ class Parser:
             if tok is None or not tok.type == Token.TokenType.RBRACE:
                 print("Invalid end of IF statement body")
                 raise Exception()
-            return If(conditions, content, [], els)
+            return If(constexpr, conditions, content, [], els)
         elif toks[1].type == Token.TokenType.IF: # Else If block
             next_if = self.parse_if_block()
             elifs = next_if.elseifs
@@ -717,10 +730,10 @@ class Parser:
             next_if.elseifs = []
             next_if.els = None
             elifs.insert(0, next_if)
-            return If(conditions, content, elifs, els) 
+            return If(constexpr, conditions, content, elifs, els) 
         else: # Else statement
             els = self.parse_statement()
-            return If(conditions, content, [], els) 
+            return If(constexpr, conditions, content, [], els) 
 
     def parse_while_block(self) -> While:
         '''

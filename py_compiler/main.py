@@ -52,6 +52,5 @@ if __name__ == '__main__':
             parser = Parser(lex)
             program.add_class(parser.parse_class(), filename.replace('.lang',''))
 
-    for i in range(program.nclasses):
-        compiler = Compiler(dirpath, program.classes[i], program.packages[i], True)
-        compiler.compile()
+    compiler = Compiler(dirpath, program.classes, program.packages, True)
+    compiler.compileAll()

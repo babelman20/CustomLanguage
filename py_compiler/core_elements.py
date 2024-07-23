@@ -244,7 +244,8 @@ class If:
     pass
 
 class If:
-    def __init__(self, conditions: Conditions, content: Statement | Body, elseifs: list[If], els: Statement | Body):
+    def __init__(self, constexpr: bool, conditions: Conditions, content: Statement | Body, elseifs: list[If], els: Statement | Body):
+        self.constexpr = constexpr
         self.conditions = conditions
         self.content = content
         self.elseifs = elseifs

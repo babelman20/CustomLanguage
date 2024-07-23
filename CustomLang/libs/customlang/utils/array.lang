@@ -9,4 +9,37 @@ public class array<T> {
 
         array<i8> arr = new array<i8>(4);
     }
+
+    public T func operator[](u32 index) {
+        u64 pos = valuesPtr + index * sizeof(T);
+        mut T result;
+
+        if constexpr (sizeof(T) == 1) {
+            asm {
+                "
+                mov byte ptr [rbp-9], byte ptr [rbx]
+                "
+            }
+        } else if constexpr (sizeof(T) == 2) {
+            asm {
+                "
+                mov word ptr [rbp-10], word ptr [rbx]
+                "
+            }
+        } else if constexpr (sizeof(T) == 4) {
+            asm {
+                "
+                mov dword ptr [rbp-12], dword ptr [rbx]
+                "
+            }
+        } else {
+            asm {
+                "
+                mov qword ptr [rbp-16], qword ptr [rbx]
+                "
+            }
+        }
+
+        return result;
+    }
 }
