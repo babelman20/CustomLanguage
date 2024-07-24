@@ -89,18 +89,18 @@ class FunctionCall:
         return output
 
 class MemberAccess:
-    def __init__(self, name: str | FunctionCall | ConstructorCall = None, next: MemberAccess = None): # Val is either a function, another member access, or None (representing a member variable)
-        self.name = name
-        self.next = next
+    def __init__(self, accesses: list[str | FunctionCall | ConstructorCall]):
+        self.accesses: list[str | FunctionCall | ConstructorCall] = accesses
 
     def __str__(self):
-        output = str(self.name)
-
-        if not self.next is None: output += f'.{self.next}'
+        output = ''
+        for i in range(len(self.accesses)-1):
+            output += str(self.accesses[i]) + '.'
+        output += str(self.accesses[-1])
         return output
 
 class Expression:
-    def __init__(self, values: list[Expression | MemberAccess | FunctionCall | str], ops: list[Operation] = []): # Val is a raw value or a function call
+    def __init__(self, values: list[Expression | MemberAccess | FunctionCall | ConstructorCall | str], ops: list[Operation] = []): # Val is a raw value or a function call
         if (not type(values) is list and len(ops) > 0) or (not len(values)-1 == len(ops)):
             print("Values/Operations mismatch !!!")
             raise Exception()
@@ -167,20 +167,22 @@ class Parameter:
         else: return 8
 
 class Variable:
-    def __init__(self, mods: list[str], type: str, typedef: list[str], name: str, init_val: Expression | None):
+    def __init__(self, mods: list[str], type: str, typedef: list[str], name: str, val: Expression | None = None):
         self.mods: list[str] = mods
         self.type: str = type
         self.typedef: list[str] = typedef
         self.name: str = name
-        self.init_val = init_val
+        self.val = val
 
     def __str__(self) -> str:
         output = ''
         for m in self.mods:
             output += f"{m} "
-        output += f"{self.type} {self.name}"
-        if self.init_val is not None:
-            output += f" = {self.init_val}"
+        if self.type is not None:
+             output += f"{self.type} "
+        output += self.name
+        if self.val is not None:
+            output += f" = {self.val}"
         return output
     
     def is_primitive_type(self) -> bool:

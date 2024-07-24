@@ -223,11 +223,11 @@ class Parser:
 
         tok: Token = self.lexer.peek_next()
         if not tok is None and tok.type == Token.TokenType.SET:
-            init_val: Expression = self.parse_initialization()
+            val: Expression = self.parse_initialization()
         else:
-            init_val = None
+            val = None
 
-        return Variable([], var_type, typedef, name, init_val)
+        return Variable([], var_type, typedef, name, val)
 
     def parse_initialization(self) -> Expression:
         '''
@@ -363,7 +363,10 @@ class Parser:
 
     def parse_expression(self) -> Expression:
         '''
-        Expression : MemberAccess
+        Expression : IDENTIFIER
+                    | FunctionCall
+                    | ConstructorCall
+                    | MemberAccess
                     | VAL
                     | LPAREN Expression RPAREN Operator Expression
                     | Expression Operator Expression
@@ -385,8 +388,28 @@ class Parser:
                     print("Expected close parenthesis ')'")
                     raise Exception()
                 self.lexer.pop_token()
+                
             elif tok.type == Token.TokenType.NEW or tok.type == Token.TokenType.IDENTIFIER:
-                values.append(self.parse_member_access())
+                if tok.type == Token.TokenType.NEW:
+                    content = self.parse_constructor_call()
+                else:
+                    toks: list[Token] = self.lexer.peek_tokens(2)
+                    if toks[1] is None:
+                        print("Unexpected end of file ...")
+                        raise Exception()
+                    elif toks[1].type == Token.TokenType.LPAREN:
+                        content = self.parse_function_call()
+                    else: # variable access
+                        content = Variable([], None, None, tok.content)
+                        self.lexer.pop_token()
+                    
+                tok: Token = self.lexer.peek_next()
+                if tok is not None and tok.type == Token.TokenType.DOT:
+                    memberAccess = self.parse_member_access()
+                    memberAccess.accesses.insert(0, content)
+                    values.append(memberAccess)
+                else:
+                    values.append(content)
             elif tok.type == Token.TokenType.VAL:
                 self.lexer.pop_token()
                 values.append(tok.content)
@@ -416,43 +439,37 @@ class Parser:
 
     def parse_member_access(self) -> MemberAccess:
         '''
-        MemberAccess : IDENTIFIER DOT MemberAccess
-                      | FunctionCall DOT MemberAccess
-                      | ConstructorCall DOT MemberAccess
-                      | IDENTIFIER
-                      | FunctionCall
-                      | ConstructorCall
+        MemberAccess : IDENTIFIER (DOT (IDENTIFIER | FunctionCall | ConstructorCall))+
+                      | FunctionCall (DOT (IDENTIFIER | FunctionCall | ConstructorCall))+
+                      | ConstructorCall (DOT (IDENTIFIER | FunctionCall | ConstructorCall))+
         '''
         if self.debug_mode: print("Member Access check")
-        toks: list[Token] = self.lexer.peek_tokens(2)
-        if toks[0] is None:
-            print("Unexpected end of file ...")
-            raise Exception()
-        
-        if toks[0].type == Token.TokenType.NEW:  # Constructor call
-            content = self.parse_constructor_call()
-        elif toks[0].type == Token.TokenType.IDENTIFIER:
-            if toks[1] is None:
+
+        accesses = []
+        tok = self.lexer.peek_next()
+        while tok is not None and tok.type == Token.TokenType.DOT:
+            self.lexer.pop_token()
+            toks: list[Token] = self.lexer.peek_tokens(2)
+            if toks[0] is None:
                 print("Unexpected end of file ...")
                 raise Exception()
             
-            if toks[1].type == Token.TokenType.LPAREN:
-                content = self.parse_function_call()
-            else:
-                content = toks[0].content
-                self.lexer.pop_token()
-        else:
-            print("Member access has no name ...")
-            raise Exception()
-            
-        tok = self.lexer.peek_next()
-        if tok is not None and tok.type == Token.TokenType.DOT:  # Deeper access
-            self.lexer.pop_token()
-            next = self.parse_member_access()
-        else:
-            next = None
+            if toks[0].type == Token.TokenType.NEW:  # Constructor call
+                content = self.parse_constructor_call()
+            elif toks[0].type == Token.TokenType.IDENTIFIER:
+                if toks[1] is None:
+                    print("Unexpected end of file ...")
+                    raise Exception()
+                
+                if toks[1].type == Token.TokenType.LPAREN:
+                    content = self.parse_function_call()
+                else:
+                    content = toks[0].content
+                    self.lexer.pop_token()
+            accesses.append(content)
+            tok = self.lexer.peek_next()
 
-        return MemberAccess(content, next)
+        return MemberAccess(accesses)
     
     def parse_constructor_call(self) -> ConstructorCall:
         '''

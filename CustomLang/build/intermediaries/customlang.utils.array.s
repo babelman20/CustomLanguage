@@ -12,6 +12,7 @@ section .text
   global customlang_utils_array_operator_BRACKETS
   customlang_utils_array_operator_BRACKETS:
     enter 0, 0
+    mov rax, qword [rbp-8]
 
     leave
     ret

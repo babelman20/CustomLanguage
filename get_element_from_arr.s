@@ -1,4 +1,4 @@
-.section .text
+section .text
 
 myfunction:
     enter 0, 0                  ; Enter a function!  Push rbp and move rbp to rsp
@@ -18,8 +18,12 @@ myfunction:
 ; Equivalent to "mut T result;" where sizeof(T)=4
     sub rsp, 4                  ; Make space to hold the return value
 
+; Injected asm block for generic function
+    mov rax, qword [rbp-8]          ; Load the "pos" pointer from [rbp-8] into rax
+
 ; Injected asm block built from constexpr if blocks (since sizeof(T)=4, we use rbp-5 and dword)
-    mov dword ptr [rbp-12], dword ptr [rbx]  ; Store return value
+    mov eax, dword [rax]            ; Load value from "pos" pointer
+    mov dword [rbp-12], eax         ; Store return value
 
 ; Equivalent to "return result"
     mov rax, dword ptr [rbp-12]

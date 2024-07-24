@@ -12,6 +12,12 @@ public class array<T> {
         u64 pos = valuesPtr + index * sizeof(T);
         mut T result;
 
+        asm {
+            "
+            mov rax, qword [rbp-8]
+            "
+        }
+
         if constexpr (sizeof(T) == 1) {
             asm {
                 "
