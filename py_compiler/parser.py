@@ -563,7 +563,7 @@ class Parser:
                    | BREAK SEMICOLON
                    | AsmBlock
         '''
-        if self.debug_mode: print("Statment check")
+        if self.debug_mode: print("Statement check")
 
         toks: list[Token] = self.lexer.peek_tokens(2)
         if toks[0] is None:

@@ -303,8 +303,6 @@ class Compiler:
     def build_variable_update_statement(self, file, statement: VariableUpdate):
         pass
 
-    def evaluate_expression
-
     def build_return_statement(self, file, statement: Return):
         pass
 
