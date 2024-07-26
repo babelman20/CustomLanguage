@@ -57,18 +57,18 @@ class MemberAccess:
     pass
 
 class ConstructorCall:
-    def __init__(self, name: str, typedef: list[str], args: list[Expression]):
+    def __init__(self, name: str, typedefs: list[str], args: list[Expression]):
         self.name = name
-        self.typedef = typedef
+        self.typedefs = typedefs
         self.args = args
 
     def __str__(self):
         output = f"new {self.name}"
-        if len(self.typedef) > 0:
+        if len(self.typedefs) > 0:
             output += '<'
-            for i in range(len(self.typedef)-1):
-                output += f'{self.typedef[i]}, '
-            output += f'{self.typedef[-1]}>'
+            for i in range(len(self.typedefs)-1):
+                output += f'{self.typedefs[i]}, '
+            output += f'{self.typedefs[-1]}>'
         for i in range(len(self.args)-1):
             output += f"{self.args[i]}, "
         if len(self.args) > 0: output += str(self.args[-1])
@@ -153,11 +153,19 @@ class Conditions:
             else: return f"({self.left} || {self.right})"
 
 class Parameter:
-    def __init__(self, type: str, name:str):
+    def __init__(self, type: str, typedefs: list[str], name: str):
         self.type: str = type
+        self.typedefs: list[str] = typedefs
         self.name: str = name
 
     def __str__(self) -> str:
+        output = f'{self.type}'
+
+        if self.typedefs is not None:
+            output += '<'
+            for i in range(len(self.typedefs)-1):
+                output += f'{self.typedefs[i]}, '
+            output += f'{self.typedefs[-1]}>'
         return f'{self.type} {self.name}'
     
     def get_reserve_size(self) -> int:
@@ -167,10 +175,10 @@ class Parameter:
         else: return 8
 
 class Variable:
-    def __init__(self, mods: list[str], type: str, typedef: list[str], name: str, val: Expression | None = None):
+    def __init__(self, mods: list[str], type: str, typedefs: list[str], name: str, val: Expression | None = None):
         self.mods: list[str] = mods
         self.type: str = type
-        self.typedef: list[str] = typedef
+        self.typedefs: list[str] = typedefs
         self.name: str = name
         self.val = val
 

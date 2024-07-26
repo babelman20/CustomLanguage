@@ -315,18 +315,32 @@ class Parser:
 
     def parse_params(self) -> list[Parameter]:
         '''
-        Params : IDENTIFIER IDENTIFIER COMMA Params
-                | IDENTIFIER IDENTIFIER
+        Params : IDENTIFIER Typedef IDENTIFIER COMMA Params
+                | IDENTIFIER Typedef IDENTIFIER
         '''
         if self.debug_mode: ("Param")
-        toks: list[Token] = self.lexer.next_tokens(2)
-        if toks[0] is None or not toks[0].type == Token.TokenType.IDENTIFIER:
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.IDENTIFIER:
             print("Expected parameter type ...")
             raise Exception()
-        if toks[1] is None or not toks[1].type == Token.TokenType.IDENTIFIER:
+        type = tok.content
+        
+        tok: Token = self.lexer.peek_next()
+        if tok is None:
+            print("Unexpected end of file")
+            raise Exception()
+        elif tok.type == Token.TokenType.LT:
+            typedef: list[str] = self.parse_typedef()
+        else:
+            typedef = None
+
+        tok: Token = self.lexer.next_token()
+        if tok is None or not tok.type == Token.TokenType.IDENTIFIER:
             print("Expected parameter name ...")
             raise Exception()
-        param: Parameter = Parameter(toks[0].content, toks[1].content)
+        name = tok.content
+
+        param: Parameter = Parameter(type, typedef, name)
 
         tok: Token = self.lexer.peek_next()
         if tok is None or not tok.type == Token.TokenType.COMMA: return [param]

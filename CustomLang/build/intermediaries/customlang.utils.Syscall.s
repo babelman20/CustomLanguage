@@ -12,6 +12,7 @@ section .text
   global customlang_utils_Syscall_read
   customlang_utils_Syscall_read:
     enter 0, 0
+    sub rsp, 4
     mov rax, 0x00
     mov edi, [rbp+16]
     mov rsi, [rbp+20]
