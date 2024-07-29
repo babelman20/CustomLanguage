@@ -414,7 +414,7 @@ class Parser:
                 print("Reached unexpected end of file ...")
                 raise Exception()
             elif not tok.content in [op.value for op in expression_operations]: break
-
+            
             for op in expression_operations:
                 if tok.content == op.value:
                     operations.append(op)
@@ -453,7 +453,6 @@ class Parser:
                 content = self.parse_function_call()
             else:
                 content = VariableAccess(toks[0].content, toks[0].pos)
-                print("Access:", content)
                 self.lexer.pop_token()
 
         accesses = [content]
@@ -735,9 +734,12 @@ class Parser:
             if tok is None or not tok.type == Token.TokenType.RBRACE:
                 print("Invalid end of IF statement body")
                 raise Exception()
-
+        
         toks: list[Token] = self.lexer.peek_tokens(2)
-        if toks[0] is None or not toks[0].type == Token.TokenType.ELSE: return If(constexpr, conditions, content, [], None)
+        if toks[0] is None:
+            print("Unexpected end of file ...")
+            raise Exception()
+        elif not toks[0].type == Token.TokenType.ELSE: return If(constexpr, conditions, content, [], toks[0].pos)
         self.lexer.pop_token()
 
         if toks[1] is None:
@@ -750,7 +752,7 @@ class Parser:
             if tok is None or not tok.type == Token.TokenType.RBRACE:
                 print("Invalid end of IF statement body")
                 raise Exception()
-            return If(constexpr, conditions, content, [], els)
+            return If(constexpr, conditions, content, [], els, toks[1].pos)
         elif toks[1].type == Token.TokenType.IF: # Else If block
             next_if = self.parse_if_block()
             elifs = next_if.elseifs
@@ -758,10 +760,10 @@ class Parser:
             next_if.elseifs = []
             next_if.els = None
             elifs.insert(0, next_if)
-            return If(constexpr, conditions, content, elifs, els) 
+            return If(constexpr, conditions, content, elifs, els, toks[1].pos) 
         else: # Else statement
             els = self.parse_statement()
-            return If(constexpr, conditions, content, [], els) 
+            return If(constexpr, conditions, content, [], els, toks[1].pos) 
 
     def parse_while_block(self) -> While:
         '''
@@ -794,8 +796,9 @@ class Parser:
             if tok is None or not tok.type == Token.TokenType.RBRACE:
                 print("Invalid end of WHILE statement body")
                 raise Exception()
+            end_pos = tok.pos
         
-        return While(conditions, content)
+        return While(conditions, content, end_pos)
 
     def parse_for_block(self) -> For:
         '''
@@ -834,7 +837,13 @@ class Parser:
             raise Exception()
         
         tok = self.lexer.peek_next()
-        if tok is None or not tok.type == Token.TokenType.LBRACE: content = self.parse_statement()
+        if tok is None or not tok.type == Token.TokenType.LBRACE: 
+            content = self.parse_statement()
+            tok = self.lexer.peek_next()
+            if tok is None:
+                print("Unexpected end of file ...")
+                raise Exception()
+            end_pos = tok.pos
         else:
             self.lexer.pop_token()
             content = self.parse_body()
@@ -842,8 +851,9 @@ class Parser:
             if tok is None or not tok.type == Token.TokenType.RBRACE:
                 print("Invalid end of FOR statement body")
                 raise Exception()
+            end_pos = tok.pos
         
-        return For(var_declr, conditions, var_update, content)
+        return For(var_declr, conditions, var_update, content, end_pos)
 
     def parse_foreach_block(self) -> ForEach:
         '''
@@ -872,11 +882,16 @@ class Parser:
         elif toks[2] is None or not toks[2].type == Token.TokenType.RPAREN:
             print("ForEach statement missing close parenthesis ')'")
             raise Exception()
-        iterable_var: str = toks[1].content
-        pos: int = toks[1].pos
+        iterable_var: VariableAccess = VariableAccess(toks[1].content, toks[1].pos)
 
         tok = self.lexer.peek_next()
-        if tok is None or not tok.type == Token.TokenType.LBRACE: content = self.parse_statement()
+        if tok is None or not tok.type == Token.TokenType.LBRACE: 
+            content = self.parse_statement()
+            tok = self.lexer.peek_next()
+            if tok is None:
+                print("Unexpected end of file ...")
+                raise Exception()
+            end_pos = tok.pos
         else:
             self.lexer.pop_token()
             content = self.parse_body()
@@ -884,8 +899,9 @@ class Parser:
             if tok is None or not tok.type == Token.TokenType.RBRACE:
                 print("Invalid end of FOR statement body")
                 raise Exception()
+            end_pos = tok.pos
             
-        return ForEach(var_declr, iterable_var, content, pos)
+        return ForEach(var_declr, iterable_var, content, end_pos)
     
     def parse_switch(self) -> Switch:
         '''
@@ -1111,12 +1127,14 @@ class Parser:
         else:
             if member_access is None: member_access = self.parse_member_access()
 
-            tok: list[Token] = self.lexer.next_token()
-            if tok.type == Token.TokenType.INC or tok.type == Token.TokenType.DEC: return VariableUpdate(member_access, VariableSetOperation.INC, None, member_access.accesses[-1].pos)
+            tok: Token = self.lexer.next_token()
+            if tok == Token.TokenType.INC: return VariableUpdate(member_access, VariableSetOperation.INC, None, member_access.accesses[-1].pos)
+            elif tok == Token.TokenType.DEC: return VariableUpdate(member_access, VariableSetOperation.DEC, None, member_access.accesses[-1].pos)
 
             for op in VariableSetOperation:
                 if tok.content == op.value:
-                    return VariableUpdate(member_access, VariableSetOperation.INC, self.parse_expression(), member_access.accesses[-1].pos)
+                    return VariableUpdate(member_access, op, self.parse_expression(), member_access.accesses[-1].pos)
 
             print(f"Unrecognized operation: {tok.content}")
+            raise Exception()
         

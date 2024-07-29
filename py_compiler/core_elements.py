@@ -251,6 +251,9 @@ class Variable:
     def is_primitive_type(self) -> bool:
         return self.type in primitive_types
     
+    def is_signed(self) -> bool:
+        return self.type in ['i8', 'i16', 'i32', 'i64']
+    
     def get_reserve_size(self) -> int:
         if self.type in ['char','u8','i8']: return 1
         elif self.type in ['u16','i16']: return 2
@@ -323,12 +326,13 @@ class If:
     pass
 
 class If:
-    def __init__(self, constexpr: bool, conditions: Conditions, content: Statement | Body, elseifs: list[If], els: Statement | Body):
+    def __init__(self, constexpr: bool, conditions: Conditions, content: Statement | Body, elseifs: list[If], els: Statement | Body, end_pos: int):
         self.constexpr = constexpr
         self.conditions = conditions
         self.content = content
         self.elseifs = elseifs
         self.els = els
+        self.end_pos = end_pos
 
     def __str__(self) -> str:
         output = f"if ({self.conditions}) "
@@ -345,9 +349,10 @@ class If:
         return output
     
 class While:
-    def __init__(self, conditions: Conditions, content: Statement | Body):
+    def __init__(self, conditions: Conditions, content: Statement | Body, end_pos: int):
         self.conditions = conditions
         self.content = content
+        self.end_pos = end_pos
 
     def __str__(self) -> str:
         output = f"while ({self.conditions}) "
@@ -355,11 +360,12 @@ class While:
         return output
     
 class For:
-    def __init__(self, declaration: Variable, conditions: Conditions, update: VariableUpdate, content: Statement | Body):
+    def __init__(self, declaration: Variable, conditions: Conditions, update: VariableUpdate, content: Statement | Body, end_pos: int):
         self.declaration = declaration
         self.conditions = conditions
         self.update = update
         self.content = content
+        self.end_pos = end_pos
 
     def __str__(self) -> str:
         output = f"for ({self.declaration}; {self.conditions}; {self.update}) "
@@ -367,11 +373,11 @@ class For:
         return output
     
 class ForEach:
-    def __init__(self, var: Variable, iterator: str, content: Statement | Body, pos: int):
+    def __init__(self, var: Variable, iterator: VariableAccess, content: Statement | Body, end_pos: int):
         self.var = var
         self.iterator = iterator
         self.content = content
-        self.pos = pos
+        self.end_pos = end_pos
 
     def __str__(self) -> str:
         output = f"foreach ({self.var} in {self.iterator}) "

@@ -6,6 +6,20 @@ This will be an object-oriented language that is highly memory efficient.  I wan
 
 # Revision History
 
+## InDev Version 0.2.11 - 2024-07-29
+- Parser Updates:
+    - Added end position to most statements to track when variables local to that body go out of scope
+    - Fixed some variable update naming problems
+- Compiler Updates:
+    - Fixed variable update logic to work better with member accessing
+
+## InDev Version 0.2.10 - 2024-07-29
+- Parser Updates:
+    - Fixed variable updating to allow updates to and using member variables
+    - Added token position number to track variables
+- Compiler Updates:
+    - Implemented most of the variable tracking logic
+
 ## InDev Version 0.2.9 - 2024-07-26
 - Parser Updates:
     - Added parsing for typdef in function parameters

@@ -9,6 +9,18 @@ class CompiledVariable:
         self.name: str = var.name
         self.offset: int = offset
 
+    def is_primitive_type(self) -> bool:
+        return self.type in primitive_types
+    
+    def is_signed(self) -> bool:
+        return self.type in ['i8', 'i16', 'i32', 'i64']
+    
+    def get_reserve_size(self) -> int:
+        if self.type in ['char','u8','i8']: return 1
+        elif self.type in ['u16','i16']: return 2
+        elif self.type in ['u32','i32','f32']: return 4
+        else: return 8
+
 class ClassEnvironment:
     def __init__(self, name: str, static_imut_vars: list[Variable], static_mut_vars: list[Variable], static_vars: list[Variable], member_vars: list[CompiledVariable], imports: list[Class]):
         self.name: str = name
@@ -36,9 +48,11 @@ class Registers:
             'r15': None
         }  
 
-    def get_register(self):
-        # TODO: Add logic to find the register holding the value whose next use is the furthest away
-        pass
+    def set_register_value(self, reg: str, name: str):
+        self.registers[reg] = name
+
+    def get_register_value(self, reg: str):
+        return self.registers[reg]
 
 class Environment:
     def __init__(self, class_env: ClassEnvironment):
@@ -48,7 +62,6 @@ class Environment:
         self.offsets: dict[int, int] = {1: 0}  # Offset map for each depth
     
     def add_variable_declaration(self, var: Variable, depth: int):
-        print(f"DEPTH::  {depth}")
         if depth not in self.offsets.keys(): self.offsets[depth] = self.offsets[depth-1]
         self.offsets[depth] += var.get_reserve_size()
 
@@ -71,6 +84,8 @@ class Environment:
         for var in self.depth_map.keys():
             if name == var: return var
         return None
+    
+    def get_active_register(self, name: str): pass
 
 class Compiler:
 
@@ -261,7 +276,7 @@ class Compiler:
     # Loop to add functions
     def build_functions(self, file, klass: Class, classEnv: ClassEnvironment):
         for function in klass.body.functions:
-            if self.debug_mode: print(f"Build function '{classEnv.name}_{function.name}'")
+            self.print(f"Build function '{classEnv.name}_{function.name}'")
             if 'public' in function.mods: 
                 file.write('  '*self.depth + f'global {classEnv.name}_{function.name}\n')
             file.write('  '*self.depth + f'{classEnv.name}_{function.name}:\n')
@@ -373,42 +388,34 @@ class Compiler:
         exp: Expression = var_update.val
         op: VariableSetOperation = var_update.op
 
-        self.print(f"Type: {type(var_update.member_access)}")
-        self.print('  '.join([str(type(acc)) for acc in var_update.member_access.accesses]))
-
-        if not all([type(acc) == VariableAccess for acc in var_update.member_access.accesses]): name = '__'
-        else:  name = '_'.join([acc.name for acc in var_update.member_access.accesses])
-
         if op == VariableSetOperation.INC:
-            exp: Expression = Expression([name, '1'],  [Operation.ADD])
+            exp: Expression = Expression([var_update.member_access, '1'],  [Operation.ADD])
         elif op == VariableSetOperation.DEC:
-            exp: Expression = Expression([name, '1'],  [Operation.SUB])
+            exp: Expression = Expression([var_update.member_access, '1'],  [Operation.SUB])
         elif op == VariableSetOperation.SET_ADD:
-            exp: Expression = Expression([name, exp], [Operation.ADD])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.ADD])
         elif op == VariableSetOperation.SET_SUB:
-            exp: Expression = Expression([name, exp], [Operation.SUB])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.SUB])
         elif op == VariableSetOperation.SET_MULT:
-            exp: Expression = Expression([name, exp], [Operation.MULT])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.MULT])
         elif op == VariableSetOperation.SET_DIV:
-            exp: Expression = Expression([name, exp], [Operation.DIV])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.DIV])
         elif op == VariableSetOperation.SET_MOD:
-            exp: Expression = Expression([name, exp], [Operation.MOD])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.MOD])
         elif op == VariableSetOperation.SET_BIT_AND:
-            exp: Expression = Expression([name, exp], [Operation.BIT_AND])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.BIT_AND])
         elif op == VariableSetOperation.SET_BIT_OR:
-            exp: Expression = Expression([name, exp], [Operation.BIT_OR])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.BIT_OR])
         elif op == VariableSetOperation.SET_BIT_NOT:
-            exp: Expression = Expression([name, exp], [Operation.BIT_NOT])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.BIT_NOT])
         elif op == VariableSetOperation.SET_BIT_XOR:
-            exp: Expression = Expression([name, exp], [Operation.BIT_XOR])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.BIT_XOR])
         elif op == VariableSetOperation.SET_BIT_LSHIFT:
-            exp: Expression = Expression([name, exp], [Operation.BIT_LSHIFT])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.BIT_LSHIFT])
         elif op == VariableSetOperation.SET_BIT_RSHIFT:
-            exp: Expression = Expression([name, exp], [Operation.BIT_RSHIFT])
+            exp: Expression = Expression([var_update.member_access, exp], [Operation.BIT_RSHIFT])
 
         # TODO: Evaluate expression and store value in variable
-        self.print(f'Vars: {exp.values}')
-        self.print(f'Ops: {[op.value for op in exp.ops]}')
 
         rpn = exp.generate_RPN()
         somestr = ''
@@ -418,6 +425,7 @@ class Compiler:
 
     # Maybe store expression result in rax register?  Could provide consistency in evaluations
     def build_expression_evaluation(self, file, env: Environment, expression: Expression):
+        # TODO: Strategy ->  1. Find where vars meet ops   2. Combine until out of ops   3. Repeat
         pass
 
     def build_return_statement(self, file, env: Environment, statement: Return):
@@ -528,12 +536,21 @@ class Compiler:
                 if var.val is not None: self.generate_variable_access_list_from_expression(env, var.val)
             elif type(statement) == VariableUpdate:
                 update: VariableUpdate = statement
+                
+                # Check INC/DEC updates
+                if update.op == VariableSetOperation.INC:
+                    update.val = Expression([update.member_access, Value('1')], [Operation.ADD])
+                elif update.op == VariableSetOperation.DEC:
+                    update.val = Expression([update.member_access, Value('1')], [Operation.SUB])
 
-                # Check variable update
+                # Check variable updates
                 if all([type(acc) == VariableAccess for acc in update.member_access.accesses]):
-                    name = '_'.join([acc.name for acc in update.member_access.accesses])
-                    env.add_variable_reference(name, self.depth, update.pos)
-                    self.generate_variable_access_list_from_expression(env, update.val)
+                    names = []
+                    for i in range(len(update.member_access.accesses)-1):
+                        access: VariableAccess = update.member_access.accesses[i]
+                        names.append(access.name)
+                        env.add_variable_reference('_'.join(names), self.depth, access.pos)
+                    if update.val is not None: self.generate_variable_access_list_from_expression(env, update.val)
             elif type(statement) == Return:
                 return_statement: Return = statement
 
@@ -551,3 +568,10 @@ class Compiler:
         for val in exp.generate_RPN():
             if type(val) == VariableAccess:
                 env.add_variable_reference(val.name, self.depth, val.pos)
+            elif type(val) == MemberAccess:
+                self.generate_variable_access_list_from_member_access(env, val)
+
+    def generate_variable_access_list_from_member_access(self, env: Environment, member_access: MemberAccess):
+        for access in member_access.accesses:
+            if not type(access) == VariableAccess: return
+            env.add_variable_reference(access.name, self.depth, access.pos)

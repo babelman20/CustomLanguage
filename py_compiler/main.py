@@ -47,7 +47,7 @@ if __name__ == '__main__':
             content: str = file.read().strip()
             file.close()
 
-            lex = Lexer(content, True)
+            lex = Lexer(content)
             
             parser = Parser(lex)
             program.add_class(parser.parse_class(), filename.replace('.lang',''))
