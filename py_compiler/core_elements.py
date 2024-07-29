@@ -18,6 +18,25 @@ class Operation(Enum):
     BIT_RSHIFT = '>>'
     BRACKETS = '[]'
 
+    def __str__(self):
+        return self.value
+
+# Lower precedence is higher order
+precedence_map: dict[Operation, int] = {
+    Operation.ADD: 3,
+    Operation.SUB: 3,
+    Operation.MULT: 2,
+    Operation.DIV: 2,
+    Operation.MOD: 2,
+    Operation.BIT_AND: 5,
+    Operation.BIT_OR: 7,
+    Operation.BIT_XOR: 6,
+    Operation.BIT_NOT: 1,
+    Operation.BIT_LSHIFT: 4,
+    Operation.BIT_RSHIFT: 4,
+    Operation.BRACKETS: 0,
+}
+
 class ConditionOperation(Enum):
     LEQ = '<='
     LT = '<'
@@ -48,7 +67,7 @@ all_operations = [Operation.ADD, Operation.SUB, Operation.MULT, Operation.DIV, O
                     VariableSetOperation.SET_BIT_AND, VariableSetOperation.SET_BIT_OR, VariableSetOperation.SET_BIT_XOR, VariableSetOperation.SET_BIT_NOT, VariableSetOperation.SET_BIT_LSHIFT, VariableSetOperation.SET_BIT_RSHIFT]
 
 expression_operations = [Operation.ADD, Operation.SUB, Operation.MULT, Operation.DIV, Operation.MOD, Operation.BIT_AND, Operation.BIT_OR, Operation.BIT_XOR, Operation.BIT_NOT, Operation.BIT_LSHIFT, Operation.BIT_RSHIFT,
-                    ConditionOperation.LEQ, ConditionOperation.LEQ, ConditionOperation.GEQ, ConditionOperation.GT ,ConditionOperation.NEQ]
+                    ConditionOperation.LEQ, ConditionOperation.LT, ConditionOperation.GEQ, ConditionOperation.GT ,ConditionOperation.NEQ]
 
 class Expression:
     pass
@@ -88,9 +107,24 @@ class FunctionCall:
         output += ")"
         return output
 
+class Value:
+    def __init__(self, val: str):
+        self.val: str = val
+
+    def __str__(self):
+        return self.val
+
+class VariableAccess:
+    def __init__(self, name: str, pos: int):
+        self.name: str = name
+        self.pos: int = pos
+
+    def __str__(self):
+        return self.name
+
 class MemberAccess:
-    def __init__(self, accesses: list[str | FunctionCall | ConstructorCall]):
-        self.accesses: list[str | FunctionCall | ConstructorCall] = accesses
+    def __init__(self, accesses: list[VariableAccess | FunctionCall | ConstructorCall]):
+        self.accesses: list[VariableAccess | FunctionCall | ConstructorCall] = accesses
 
     def __str__(self):
         output = ''
@@ -100,12 +134,12 @@ class MemberAccess:
         return output
 
 class Expression:
-    def __init__(self, values: list[Expression | MemberAccess | FunctionCall | ConstructorCall | str], ops: list[Operation] = []): # Val is a raw value or a function call
+    def __init__(self, values: list[Expression | MemberAccess | VariableAccess | FunctionCall | ConstructorCall | Value], ops: list[Operation] = []): # Val is a raw value or a function call
         if (not type(values) is list and len(ops) > 0) or (not len(values)-1 == len(ops)):
             print("Values/Operations mismatch !!!")
             raise Exception()
-        self.values = values
-        self.ops = ops
+        self.values: list[Expression | MemberAccess | VariableAccess | FunctionCall | ConstructorCall | Value] = values
+        self.ops: list[Operation] = ops
 
     def __str__(self):
         output: str = "("
@@ -113,6 +147,31 @@ class Expression:
             output += f"{self.values[i]} {self.ops[i].value} "
         output += f"{self.values[-1]}"
         output += ")"
+        return output
+    
+    def generate_RPN(self) -> list[MemberAccess | VariableAccess | FunctionCall | ConstructorCall | Value | Operation]:
+        if len(self.values) == 1: return self.values if type(self.values[0]) is not Expression else self.values[0].generate_RPN()
+
+        if type(self.values[0]) is not Expression:
+            output = [self.values[0]]   
+        else:
+            output = self.values[0].generate_RPN()
+        op_stack = []
+
+        index = 0
+        while index < len(self.ops):
+            if type(self.values[index+1]) is not Expression:
+                output.append(self.values[index+1])
+            else:
+                output.extend(self.values[index+1].generate_RPN())
+            while (op_stack and precedence_map[op_stack[-1]] <= precedence_map[self.ops[index]]):
+                output.append(op_stack.pop())
+            op_stack.append(self.ops[index])
+            index += 1
+
+        while op_stack:
+            output.append(op_stack.pop())
+
         return output
     
     def evaluate(self):
@@ -123,34 +182,29 @@ class Expression:
 
 
 class Condition:
-    def __init__(self, left: Expression, right: Expression, operation: ConditionOperation):
+    def __init__(self, left: Expression, right: Expression, operation: ConditionOperation, is_negated: bool):
         self.left = left
         self.right = right
         self.operation = operation
+        self.is_negated = is_negated
 
     def __str__(self):
-       return f"{self.left} {self.operation.value} {self.right}"
+       if self.is_negated: return f"!({self.left} {self.operation.value} {self.right})"
+       else: return f"{self.left} {self.operation.value} {self.right}"
 
 class Conditions:
     pass
 
 class Conditions:
-    def __init__(self, inversed: bool, isAnd: bool, val: Condition = None, left: Conditions = None, right: Conditions = None):
-        self.inversed = inversed
-        self.val = val
-        self.left = left
-        self.right = right
-        self.isAnd = isAnd
+    def __init__(self, conditions: list[Conditions | Condition], ops: list[bool]):  # ops[i] == True for AND, False for OR
+        self.conditions = conditions
+        self.ops = ops
 
     def __str__(self):
-        if self.inversed:
-            if not self.val is None: return f"!({self.val})"
-            elif self.isAnd: return f"!({self.left} && {self.right})"
-            else: return f"!({self.left} || {self.right})"
-        else:
-            if not self.val is None: return f"{self.val}"
-            elif self.isAnd: return f"({self.left} && {self.right})"
-            else: return f"({self.left} || {self.right})"
+        output = "("
+        for i in range(len(self.conditions)-1):
+            output += f"{self.conditions[i]} {'&&' if self.ops[i] else '||'}"
+        output += f'{self.conditions[-1]})'
 
 class Parameter:
     def __init__(self, type: str, typedefs: list[str], name: str):
@@ -175,12 +229,13 @@ class Parameter:
         else: return 8
 
 class Variable:
-    def __init__(self, mods: list[str], type: str, typedefs: list[str], name: str, val: Expression | None = None):
+    def __init__(self, mods: list[str], type: str, typedefs: list[str], name: str, pos: int, val: Expression | None = None):
         self.mods: list[str] = mods
         self.type: str = type
         self.typedefs: list[str] = typedefs
         self.name: str = name
-        self.val = val
+        self.pos: int = pos
+        self.val: Expression|None = val
 
     def __str__(self) -> str:
         output = ''
@@ -249,19 +304,20 @@ class Asm:
         return "asm \{\n" + self.content + "\n}\n"
     
 class VariableUpdate:
-    def __init__(self, name: str, op: VariableSetOperation, val: Expression):
-        self.name = name
+    def __init__(self, member_access: MemberAccess, op: VariableSetOperation, val: Expression, pos: int):
+        self.member_access = member_access
         self.op = op
         self.val = val
+        self.pos = pos
 
     def __str__(self) -> str:
         if self.op == VariableSetOperation.INC: 
-            if self.val: return f"++{self.name}"
-            else: return f"{self.name}++"
+            if self.val: return f"++{self.member_access}"
+            else: return f"{self.member_access}++"
         elif self.op == VariableSetOperation.DEC:
-            if self.val: return f"--{self.name}"
-            else: return f"{self.name}--"
-        return f"{self.name} {self.op.value} {self.val}"
+            if self.val: return f"--{self.member_access}"
+            else: return f"{self.member_access}--"
+        return f"{self.member_access} {self.op.value} {self.val}"
 
 class If:
     pass
@@ -311,10 +367,11 @@ class For:
         return output
     
 class ForEach:
-    def __init__(self, var: Variable, iterator: str, content: Statement | Body):
+    def __init__(self, var: Variable, iterator: str, content: Statement | Body, pos: int):
         self.var = var
         self.iterator = iterator
         self.content = content
+        self.pos = pos
 
     def __str__(self) -> str:
         output = f"foreach ({self.var} in {self.iterator}) "

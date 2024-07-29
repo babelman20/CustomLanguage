@@ -6,6 +6,15 @@ This will be an object-oriented language that is highly memory efficient.  I wan
 
 # Revision History
 
+## InDev Version 0.2.9 - 2024-07-26
+- Parser Updates:
+    - Added parsing for typdef in function parameters
+- Compiler Updates:
+    - Added tracking for local variables
+    - Overhauled Environment for better variable tracking based on depth
+    - Added parameter handling for constructors
+    - Implemented variable declaration compiling to support all operations
+
 ## InDev Version 0.2.8 - 2024-07-24
 - Added revision history and updated README
 - Parser Updates:

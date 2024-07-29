@@ -20,29 +20,57 @@ class ClassEnvironment:
 
 class Registers:
     def __init__(self):
-        self.registers: dict[str, str] = {}  # Contains register name & variable name pairs
+        # Contains register name & variable name pairs
+        self.registers: dict[str, str] = { 
+            'rax': None,
+            'rbx': None,
+            'rcx': None,
+            'rdx': None,
+            'r8': None,
+            'r9': None,
+            'r10': None,
+            'r11': None,
+            'r12': None,
+            'r13': None,
+            'r14': None,
+            'r15': None
+        }  
 
     def get_register(self):
-        # TODO: Add logic to find the register holding the value whose next use is the furthest awya
+        # TODO: Add logic to find the register holding the value whose next use is the furthest away
         pass
 
 class Environment:
     def __init__(self, class_env: ClassEnvironment):
         self.class_env: ClassEnvironment = class_env
-        self.depth_map: dict[CompiledVariable, dict[int, list[int]]] = {}  # Map for compiled variables: tracks statement reference locations and depths
+        self.var_name_to_compiled_map: dict[str, CompiledVariable] = {}
+        self.depth_map: dict[str, dict[int, list[int]]] = {}  # Map for compiled variables: tracks statement reference locations and depths
+        self.offsets: dict[int, int] = {1: 0}  # Offset map for each depth
     
-    def add_variable_reference(self, var: CompiledVariable, depth: int, pos: int):
-        if var not in self.depth_map.keys():
-            self.depth_map[var] = {}
-        
-        if depth not in self.depth_map[var].keys():
-            self.depth_map[var][depth] = []
+    def add_variable_declaration(self, var: Variable, depth: int):
+        print(f"DEPTH::  {depth}")
+        if depth not in self.offsets.keys(): self.offsets[depth] = self.offsets[depth-1]
+        self.offsets[depth] += var.get_reserve_size()
 
-        self.depth_map[var][depth].append(pos)
+        comp_var: CompiledVariable = CompiledVariable(var, self.offsets[depth])
+        self.var_name_to_compiled_map[comp_var.name] = comp_var
+
+    def add_variable_reference(self, var: CompiledVariable | str, depth: int, pos: int):
+        if type(var) == CompiledVariable: name = var.name
+        else: name = var
+
+        if name not in self.depth_map.keys():
+            self.depth_map[name] = {}
+        
+        if depth not in self.depth_map[name].keys():
+            self.depth_map[name][depth] = []
+
+        self.depth_map[name][depth].append(pos)
 
     def find_variable(self, name: str) -> CompiledVariable | None:
         for var in self.depth_map.keys():
-            if name == var.name: return var
+            if name == var: return var
+        return None
 
 class Compiler:
 
@@ -271,6 +299,18 @@ class Compiler:
     def build_body_block(self, file, env: Environment, body: Body, return_type: str | None = None):
         self.depth += 1
 
+        # Build variable access list for the entire body block
+        self.generate_variable_access_list(env, body)
+
+        self.print('\n\n\n')
+        for name in  env.depth_map.keys():
+            self.print(name)
+            for depth in env.depth_map[name].keys():
+                self.print(f'--{depth}')
+                for pos in env.depth_map[name][depth]:
+                    self.print(f'----{pos}')
+        self.print('\n\n\n')
+
         for statement in body.statements:
             self.line += 1
             statement = statement.statement
@@ -327,46 +367,53 @@ class Compiler:
 
         if var.val is not None:  # Variable has initial value
             self.print(f"Var \'{var.name}\' has initial value \'{var.val.evaluate()}\'")
-            self.build_variable_update_statement(file, env, VariableUpdate(var.name, VariableSetOperation.SET, var.val))
+            self.build_variable_update_statement(file, env, VariableUpdate(MemberAccess([VariableAccess(var.name, var.pos)]), VariableSetOperation.SET, var.val, var.pos))
 
     def build_variable_update_statement(self, file, env: Environment, var_update: VariableUpdate):
         exp: Expression = var_update.val
         op: VariableSetOperation = var_update.op
 
+        self.print(f"Type: {type(var_update.member_access)}")
+        self.print('  '.join([str(type(acc)) for acc in var_update.member_access.accesses]))
+
+        if not all([type(acc) == VariableAccess for acc in var_update.member_access.accesses]): name = '__'
+        else:  name = '_'.join([acc.name for acc in var_update.member_access.accesses])
+
         if op == VariableSetOperation.INC:
-            exp: Expression = Expression([var_update.name, '1'],  [Operation.ADD])
+            exp: Expression = Expression([name, '1'],  [Operation.ADD])
         elif op == VariableSetOperation.DEC:
-            exp: Expression = Expression([var_update.name, '1'],  [Operation.SUB])
+            exp: Expression = Expression([name, '1'],  [Operation.SUB])
         elif op == VariableSetOperation.SET_ADD:
-            exp: Expression = Expression([var_update.name, exp], [Operation.ADD])
+            exp: Expression = Expression([name, exp], [Operation.ADD])
         elif op == VariableSetOperation.SET_SUB:
-            exp: Expression = Expression([var_update.name, exp], [Operation.SUB])
+            exp: Expression = Expression([name, exp], [Operation.SUB])
         elif op == VariableSetOperation.SET_MULT:
-            exp: Expression = Expression([var_update.name, exp], [Operation.MULT])
+            exp: Expression = Expression([name, exp], [Operation.MULT])
         elif op == VariableSetOperation.SET_DIV:
-            exp: Expression = Expression([var_update.name, exp], [Operation.DIV])
+            exp: Expression = Expression([name, exp], [Operation.DIV])
         elif op == VariableSetOperation.SET_MOD:
-            exp: Expression = Expression([var_update.name, exp], [Operation.MOD])
+            exp: Expression = Expression([name, exp], [Operation.MOD])
         elif op == VariableSetOperation.SET_BIT_AND:
-            exp: Expression = Expression([var_update.name, exp], [Operation.BIT_AND])
+            exp: Expression = Expression([name, exp], [Operation.BIT_AND])
         elif op == VariableSetOperation.SET_BIT_OR:
-            exp: Expression = Expression([var_update.name, exp], [Operation.BIT_OR])
+            exp: Expression = Expression([name, exp], [Operation.BIT_OR])
         elif op == VariableSetOperation.SET_BIT_NOT:
-            exp: Expression = Expression([var_update.name, exp], [Operation.BIT_NOT])
+            exp: Expression = Expression([name, exp], [Operation.BIT_NOT])
         elif op == VariableSetOperation.SET_BIT_XOR:
-            exp: Expression = Expression([var_update.name, exp], [Operation.BIT_XOR])
+            exp: Expression = Expression([name, exp], [Operation.BIT_XOR])
         elif op == VariableSetOperation.SET_BIT_LSHIFT:
-            exp: Expression = Expression([var_update.name, exp], [Operation.BIT_LSHIFT])
+            exp: Expression = Expression([name, exp], [Operation.BIT_LSHIFT])
         elif op == VariableSetOperation.SET_BIT_RSHIFT:
-            exp: Expression = Expression([var_update.name, exp], [Operation.BIT_RSHIFT])
+            exp: Expression = Expression([name, exp], [Operation.BIT_RSHIFT])
 
         # TODO: Evaluate expression and store value in variable
         self.print(f'Vars: {exp.values}')
         self.print(f'Ops: {[op.value for op in exp.ops]}')
+
+        rpn = exp.generate_RPN()
         somestr = ''
-        for i in range(len(exp.ops)):
-            somestr += f'{exp.values[i]} {exp.ops[i].value} '
-        somestr +=  f'{exp.values[-1]}'
+        for v in rpn:
+            somestr += f'{v} '
         self.print(f"Expr expansion: {somestr}")
 
     # Maybe store expression result in rax register?  Could provide consistency in evaluations
@@ -384,3 +431,123 @@ class Compiler:
         
         for line in asm_lines:
             file.write('  '*self.depth + f'{line.strip()}\n')
+
+
+    def generate_variable_access_list(self, env: Environment, body: Body):
+        for statement in body.statements:
+            statement = statement.statement
+            if type(statement) == If:
+                if_statement: If = statement
+                
+                # Check conditions
+                self.generate_variable_access_list_from_conditions(env, if_statement.conditions)  
+                
+                self.depth += 1
+                # Check if block
+                if type(if_statement.content) == Body:  self.generate_variable_access_list(env, if_statement.content)  # Check if block
+                else: self.generate_variable_access_list(env, Body([if_statement.content]))
+
+                # Check else if blocks
+                for elseif in if_statement.elseifs:
+                    if type(elseif.content) == Body:  self.generate_variable_access_list(env, elseif.content)  # Check if block
+                    else: self.generate_variable_access_list(env, Body([elseif.content]))
+
+                # Check else block
+                if type(if_statement.els) == Body:  self.generate_variable_access_list(env, if_statement.els)  # Check if block
+                else: self.generate_variable_access_list(env, Body([if_statement.els]))
+                self.depth -= 1
+            elif type(statement) == While:
+                while_statement: While = statement
+                
+                # Check conditions
+                self.generate_variable_access_list_from_conditions(env, while_statement.conditions)  
+                
+                self.depth += 1
+                # Check while block
+                if type(while_statement.content) == Body:  self.generate_variable_access_list(env, while_statement.content)  # Check if block
+                else: self.generate_variable_access_list(env, Body([while_statement.content]))
+                self.depth -= 1
+            elif type(statement) == For:
+                for_statement: For = statement
+                
+                self.depth += 1
+                # Check declaration
+                env.add_variable_declaration(for_statement.declaration, self.depth)
+                if for_statement.declaration.val is not None: self.generate_variable_access_list_from_expression(env, for_statement.declaration.val)
+
+                # Check conditions
+                self.generate_variable_access_list_from_conditions(env, for_statement.conditions)  
+                
+                self.depth += 1
+                # Check for block
+                if type(for_statement.content) == Body:  self.generate_variable_access_list(env, for_statement.content)  # Check if block
+                else: self.generate_variable_access_list(env, Body([for_statement.content]))
+                self.depth -= 1
+
+                # Check variable update
+                env.add_variable_reference(for_statement.update.name, self.depth, for_statement.update.pos)
+                self.generate_variable_access_list_from_expression(env, for_statement.update.val)
+                self.depth -= 1
+            elif type(statement) == ForEach:
+                for_each_statement: ForEach = statement
+                
+                self.depth += 1
+                # Check declaration
+                env.add_variable_declaration(for_each_statement.var, self.depth)
+
+                # Check iterated var
+                env.add_variable_reference(for_each_statement.iterator, self.depth, for_each_statement.pos)
+                
+                self.depth += 1
+                # Check foreach block
+                if type(for_each_statement.content) == Body:  self.generate_variable_access_list(env, for_each_statement.content)  # Check if block
+                else: self.generate_variable_access_list(env, Body([for_each_statement.content]))
+                self.depth -= 2
+            elif type(statement) == Switch:
+                switch_statement: Switch = statement
+
+                # Check switch test condition
+                self.generate_variable_access_list_from_expression(switch_statement.test_val)
+
+                # Check case blocks
+                self.depth += 1
+                for case in switch_statement.cases:
+                    if type(case.content) == Body:  self.generate_variable_access_list(env, case.content)  # Check if block
+                    else: self.generate_variable_access_list(env, Body([case.content]))
+                self.depth -= 1
+            elif type(statement) == FunctionCall:
+                function_call: FunctionCall = statement
+
+                # Check args
+                for arg in function_call.args:
+                    self.generate_variable_access_list_from_expression(env, arg)
+            elif type(statement) == Variable:
+                var: Variable = statement
+                # Check variable declaration
+                env.add_variable_declaration(var, self.depth)
+                if var.val is not None: self.generate_variable_access_list_from_expression(env, var.val)
+            elif type(statement) == VariableUpdate:
+                update: VariableUpdate = statement
+
+                # Check variable update
+                if all([type(acc) == VariableAccess for acc in update.member_access.accesses]):
+                    name = '_'.join([acc.name for acc in update.member_access.accesses])
+                    env.add_variable_reference(name, self.depth, update.pos)
+                    self.generate_variable_access_list_from_expression(env, update.val)
+            elif type(statement) == Return:
+                return_statement: Return = statement
+
+                # Check return statement values
+                self.generate_variable_access_list_from_expression(env, return_statement.ret_val)
+            elif type(statement) == Break: pass  # IGNORED
+            elif type(statement) == Asm: pass  # IGNORED
+
+    def generate_variable_access_list_from_conditions(self, env: Environment, conditions: Conditions):
+        for condition in conditions.conditions:
+            self.generate_variable_access_list_from_expression(env, condition.left)
+            self.generate_variable_access_list_from_expression(env, condition.right)
+
+    def generate_variable_access_list_from_expression(self, env: Environment, exp: Expression):
+        for val in exp.generate_RPN():
+            if type(val) == VariableAccess:
+                env.add_variable_reference(val.name, self.depth, val.pos)

@@ -6,7 +6,7 @@ myfunction:
 ; Equivalent to "u64 pos = valuePtr + index * sizeof(T);"
     sub rsp, 8
     mov rbx, qword [rbp+16]         ; Get object reference
-    mov rcx, qword [rax+8]          ; Get pointer to array
+    mov rcx, qword [rbx+8]          ; Get pointer to array
     mov ebx, dword [rbp+20]         ; Get and upcast index to pull from  (reuse eax since object no longer needed)
     lea qword [rbp-8], [rcx+rbx*4]  ; Add offset to base array pointer and store in "pos" variable
 

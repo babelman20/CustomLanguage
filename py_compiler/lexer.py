@@ -73,12 +73,13 @@ class Token:
         SEMICOLON = r';'
         WS = r'\s+'
 
-    def __init__(self, type: TokenType, content: str):
+    def __init__(self, type: TokenType, content: str, pos: int):
         self.type: self.TokenType = type
         self.content: str = content
+        self.pos: int = pos
 
     def __str__(self):
-        return "Token({}, '{}')".format(self.type.name, self.content)
+        return "Token({}, '{}'  :  {})".format(self.type.name, self.content, self.pos)
 
 class Lexer:
     def __init__(self, text: str, debug_mode: bool = False):
@@ -96,7 +97,7 @@ class Lexer:
 
     def next_token(self) -> Token:
         if len(self.hold_tokens) > 0: 
-            tok: Token = self.hold_tokens.pop(0)[0]
+            tok: Token = self.hold_tokens.pop(0)
             return tok
         return self.__next_token(False)
     
@@ -105,10 +106,10 @@ class Lexer:
         if len(self.hold_tokens) > 0: 
             if n >= len(self.hold_tokens):
                 n -= len(self.hold_tokens)
-                tokens = [tok[0] for tok in self.hold_tokens]
+                tokens = self.hold_tokens.copy()
                 self.hold_tokens = []
             else:
-                tokens = [tok[0] for tok in self.hold_tokens[0:n]]
+                tokens = self.hold_tokens[0:n]
                 del self.hold_tokens[0:n]
                 return tokens
         
@@ -122,10 +123,10 @@ class Lexer:
         tokens = []
         if len(self.hold_tokens) > 0:
             if n >= len(self.hold_tokens):
-                tokens = [tok[0] for tok in self.hold_tokens]
                 n -= len(self.hold_tokens)
+                tokens = self.hold_tokens.copy()
             else:
-                return [tok[0] for tok in self.hold_tokens[0:n]]
+                return self.hold_tokens[0:n]
 
         for _ in range(n):
             tokens.append(self.__next_token(True))
@@ -151,9 +152,9 @@ class Lexer:
                 self.pos = match.end()                
                 if tok == Token.TokenType.WS or tok == Token.TokenType.COMMENT: return self.__next_token(peek)
                 else: 
-                    token = Token(tok, match.group().strip())
+                    token = Token(tok, match.group().strip(), self.pos)
                     if self.debug_mode: print(f"NEXT: {tok.name} {token.content} {self.pos}")
-                    if peek: self.hold_tokens.append((token,self.pos))
+                    if peek: self.hold_tokens.append(token)
                     return token
         
         print("Unexpected end of file")

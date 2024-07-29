@@ -220,6 +220,7 @@ class Parser:
             print("Variable declaration missing name")
             raise Exception()
         name: str = tok.content
+        pos: int = tok.pos
 
         tok: Token = self.lexer.peek_next()
         if not tok is None and tok.type == Token.TokenType.SET:
@@ -227,7 +228,7 @@ class Parser:
         else:
             val = None
 
-        return Variable([], var_type, typedef, name, val)
+        return Variable([], var_type, typedef, name, pos, val)
 
     def parse_initialization(self) -> Expression:
         '''
@@ -393,7 +394,7 @@ class Parser:
         
         values: list[Expression] = []
         operations: list[Operation] = []
-        while tok is not None:        
+        while tok is not None:     
             if tok.type == Token.TokenType.LPAREN:
                 self.lexer.pop_token()
                 values.append(self.parse_expression())
@@ -402,34 +403,11 @@ class Parser:
                     print("Expected close parenthesis ')'")
                     raise Exception()
                 self.lexer.pop_token()
-                
-            elif tok.type == Token.TokenType.NEW or tok.type == Token.TokenType.IDENTIFIER:
-                if tok.type == Token.TokenType.NEW:
-                    content = self.parse_constructor_call()
-                else:
-                    toks: list[Token] = self.lexer.peek_tokens(2)
-                    if toks[1] is None:
-                        print("Unexpected end of file ...")
-                        raise Exception()
-                    elif toks[1].type == Token.TokenType.LPAREN:
-                        content = self.parse_function_call()
-                    else: # variable access
-                        content = Variable([], None, None, tok.content)
-                        self.lexer.pop_token()
-                    
-                tok: Token = self.lexer.peek_next()
-                if tok is not None and tok.type == Token.TokenType.DOT:
-                    memberAccess = self.parse_member_access()
-                    memberAccess.accesses.insert(0, content)
-                    values.append(memberAccess)
-                else:
-                    values.append(content)
             elif tok.type == Token.TokenType.VAL:
                 self.lexer.pop_token()
-                values.append(tok.content)
+                values.append(Value(tok.content))
             else:
-                print("Unexpected token in expression ...")
-                raise Exception()
+                values.append(self.parse_member_access())
         
             tok: Token = self.lexer.peek_next()
             if tok is None:
@@ -453,13 +431,32 @@ class Parser:
 
     def parse_member_access(self) -> MemberAccess:
         '''
-        MemberAccess : IDENTIFIER (DOT (IDENTIFIER | FunctionCall | ConstructorCall))+
-                      | FunctionCall (DOT (IDENTIFIER | FunctionCall | ConstructorCall))+
-                      | ConstructorCall (DOT (IDENTIFIER | FunctionCall | ConstructorCall))+
+        MemberAccess : IDENTIFIER (DOT (IDENTIFIER | FunctionCall | ConstructorCall))*
+                      | FunctionCall (DOT (IDENTIFIER | FunctionCall | ConstructorCall))*
+                      | ConstructorCall (DOT (IDENTIFIER | FunctionCall | ConstructorCall))*
         '''
         if self.debug_mode: print("Member Access check")
 
-        accesses = []
+        toks: list[Token] = self.lexer.peek_tokens(2)
+        if toks[0] is None:
+            print("Unexpected end of file ...")
+            raise Exception()
+        
+        if toks[0].type == Token.TokenType.NEW:  # Constructor call
+            content = self.parse_constructor_call()
+        elif toks[0].type == Token.TokenType.IDENTIFIER:
+            if toks[1] is None:
+                print("Unexpected end of file ...")
+                raise Exception()
+            
+            if toks[1].type == Token.TokenType.LPAREN:
+                content = self.parse_function_call()
+            else:
+                content = VariableAccess(toks[0].content, toks[0].pos)
+                print("Access:", content)
+                self.lexer.pop_token()
+
+        accesses = [content]
         tok = self.lexer.peek_next()
         while tok is not None and tok.type == Token.TokenType.DOT:
             self.lexer.pop_token()
@@ -478,7 +475,7 @@ class Parser:
                 if toks[1].type == Token.TokenType.LPAREN:
                     content = self.parse_function_call()
                 else:
-                    content = toks[0].content
+                    content = VariableAccess(toks[0].content, toks[0].pos)
                     self.lexer.pop_token()
             accesses.append(content)
             tok = self.lexer.peek_next()
@@ -612,42 +609,32 @@ class Parser:
                 raise Exception()
             return Statement(var_update)
         else:
-            if toks[0].type == Token.TokenType.IDENTIFIER:
-                if toks[1].type == Token.TokenType.LPAREN or toks[1].type == Token.TokenType.DOT:
-                    return Statement(self.parse_function_call())
-                elif toks[1].type == Token.TokenType.IDENTIFIER or toks[1].type == Token.TokenType.LT:
-                    var_delcr = self.parse_variable_declaration()
-                    tok: Token = self.lexer.next_token()
-                    if tok is None or not tok.type == Token.TokenType.SEMICOLON:
-                        print("Expected semicolon ';' to follow variable declaration")
-                        raise Exception()
-                    return Statement(var_delcr)
-                elif toks[1].type in [Token.TokenType.INC, Token.TokenType.DEC, Token.TokenType.SET,
-                                    Token.TokenType.ADD, Token.TokenType.SUB, Token.TokenType.MULT, Token.TokenType.DIV, Token.TokenType.MOD]:
-                    var_update = self.parse_variable_update()
-                    tok: Token = self.lexer.next_token()
-                    if tok is None or not tok.type == Token.TokenType.SEMICOLON:
-                        print("Variable update missing semicolon ';'")
-                        raise Exception()
-                    return Statement(var_update)
-            
-            mods: list[str] = self.parse_mods()
+            mods: list[str] = self.parse_mods()  # Get mods for potential variable declaration
             toks: list[Token] = self.lexer.peek_tokens(2)
-            if toks[0] is None or toks[1] is None:
-                print("Reached unexpected end of file ...")
-                raise Exception()
-            elif toks[0].type == Token.TokenType.IDENTIFIER and toks[1].type == Token.TokenType.IDENTIFIER:
+            if toks[0].type == Token.TokenType.IDENTIFIER and (toks[1].type == Token.TokenType.IDENTIFIER or toks[1].type == Token.TokenType.LT):
                 var_delcr = self.parse_variable_declaration()
                 var_delcr.mods = mods
+
                 tok: Token = self.lexer.next_token()
                 if tok is None or not tok.type == Token.TokenType.SEMICOLON:
                     print("Expected semicolon ';' to follow variable declaration")
                     raise Exception()
                 return Statement(var_delcr)
             else:
-                print(f"Unrecognized statement starting with: {toks[0].content} {toks[1].content}")
-                raise Exception()
-    
+                member_access = self.parse_member_access()
+                if len(member_access.accesses) == 0:  member_access = None
+
+                tok: Token = self.lexer.peek_next()
+                if tok.type == Token.TokenType.SEMICOLON:  return Statement(member_access)
+
+                # Only remaining option is variable update
+                var_update = self.parse_variable_update(member_access)
+                tok: Token = self.lexer.next_token()
+                if tok is None or not tok.type == Token.TokenType.SEMICOLON:
+                    print("Variable update missing semicolon ';'")
+                    raise Exception()
+                return Statement(var_update)
+
     def parse_return(self) -> Return:
         '''
         Return : RETURN SEMICOLON
@@ -886,6 +873,7 @@ class Parser:
             print("ForEach statement missing close parenthesis ')'")
             raise Exception()
         iterable_var: str = toks[1].content
+        pos: int = toks[1].pos
 
         tok = self.lexer.peek_next()
         if tok is None or not tok.type == Token.TokenType.LBRACE: content = self.parse_statement()
@@ -897,7 +885,7 @@ class Parser:
                 print("Invalid end of FOR statement body")
                 raise Exception()
             
-        return ForEach(var_declr, iterable_var, content)
+        return ForEach(var_declr, iterable_var, content, pos)
     
     def parse_switch(self) -> Switch:
         '''
@@ -1037,46 +1025,44 @@ class Parser:
         if tok is None:
             print("Reached unexpected end of file ...")
             raise Exception()
-        elif tok.type == Token.TokenType.NOT:
-            self.lexer.pop_token()
-            tok: Token = self.lexer.peek_next()
-            if tok is None:
-                print("Reached unexpected end of file ...")
-                raise Exception()
-            inversed = True
-        else:
-            inversed = False
-
-        if tok.type == Token.TokenType.LPAREN:
-            self.lexer.pop_token()
-            left = self.parse_conditions()
-            self.lexer.pop_token()
-        else:
-            left = self.parse_condition()
-        left.inversed = inversed
         
-        tok: Token = self.lexer.peek_next()
-        if tok is None or not (tok.type == Token.TokenType.AND or tok.type == Token.TokenType.OR): return left
-        self.lexer.pop_token()
+        conditions = []
+        ops = []
+        while tok is not None:
+            if tok.type == Token.TokenType.LPAREN:
+                self.lexer.pop_token()
+                conditions.append(self.parse_conditions())
+                self.lexer.pop_token()
+            else:
+                conditions.append(self.parse_condition())
+        
+            tok: Token = self.lexer.peek_next()
+            if tok is None or not (tok.type == Token.TokenType.AND or tok.type == Token.TokenType.OR): return Conditions(conditions, ops)
+            ops.append(tok.type == Token.TokenType.AND)
+            self.lexer.pop_token()
 
-        if tok.type == Token.TokenType.AND:
-            return Conditions(None, True, None, left, self.parse_conditions())
-        elif tok.type == Token.TokenType.OR:
-             return Conditions(None, False, None, left, self.parse_conditions())
+            tok: Token = self.lexer.peek_next()
                 
-        print("No valid operation found in condition ...")
+        print("Reached unexpected end of file ...")
         raise Exception()
 
     def parse_condition(self) -> Conditions:
         '''
-        Condition : Expression LT Expression
-                    | Expression LEQ Expression
-                    | Expression GT Expression
-                    | Expression GEQ Expression
-                    | Expression NEQ Expression
-                    | Expression EQ Expression
+        Condition : Expression (LT|LEQ|GT|GEQ|NEQ|EQ) Expression
+                    | NOT LPAREN Expression (LT|LEQ|GT|GEQ|NEQ|EQ) Expression RPAREN
         '''
         if self.debug_mode: print("Condition")
+
+        # Check negation
+        is_negated = False
+        toks: list[Token] = self.lexer.peek_tokens(2)
+        if toks[0] is not None and toks[0].type == Token.TokenType.NOT:
+            if toks[1] is not None and toks[1].type == Token.TokenType.LPAREN:
+                self.lexer.pop_tokens(2)
+                is_negated = True
+            else:
+                print("Expected '(' after '!' in condition ...")
+                raise Exception()
 
         left = self.parse_expression()
 
@@ -1091,12 +1077,18 @@ class Parser:
         if cond_op is None:
             print(f"Invalid condition operation: {tok.content}")
             raise Exception()
-        
+
         right = self.parse_expression()
 
-        return Conditions(None, None, Condition(left, right, op))
+        if is_negated:
+            tok: Token = self.lexer.next_token()
+            if tok is None or not tok.type == Token.TokenType.RPAREN:
+                print("Missing ')' after NOT in condition")
+                raise Exception()
+
+        return Condition(left, right, op, is_negated)
     
-    def parse_variable_update(self):
+    def parse_variable_update(self, member_access: MemberAccess|None = None):
         '''
         VariableUpdate : IDENTIFIER (ADD|SUB|MULT|DIV|MOD|BIT_AND|BIT_OR|BIT_NOT|BIT_XOR|BIT_LSHIFT|BIT_RSHIFT|empty) SET Expression
                         | INC IDENTIFIER
@@ -1104,40 +1096,27 @@ class Parser:
                         | IDENTIFIER INC
                         | IDENTIFIER DEC
         '''
-        toks: list[Token] = self.lexer.next_tokens(2)
-        if toks[0] is None or toks[1] is None:
+        tok: Token = self.lexer.peek_next()
+        if tok is None:
             print("Unexpected end of file ...")
             raise Exception()
         
-        if toks[0].type == Token.TokenType.INC or toks[0].type == Token.TokenType.DEC:
-            if toks[1].type == Token.TokenType.IDENTIFIER:
-                if toks[0].type == Token.TokenType.INC: return VariableUpdate(toks[1].content, VariableSetOperation.INC, True)
-                else: return VariableUpdate(toks[1].content, VariableSetOperation.DEC, True)
-            else:
-                print(f"Expected variable name after {toks[0].content}")
-                raise Exception()
-        elif toks[0].type == Token.TokenType.IDENTIFIER:
-            if toks[1].type == Token.TokenType.INC: return VariableUpdate(toks[0].content, VariableSetOperation.INC, False)
-            elif toks[1].type == Token.TokenType.DEC: return VariableUpdate(toks[0].content, VariableSetOperation.DEC, False)
-            elif toks[1].type == Token.TokenType.SET:
-                return VariableUpdate(toks[0].content, VariableSetOperation.SET, self.parse_expression())
-            else:
-                tok: Token = self.lexer.next_token()
-                if tok is None or not tok.type == Token.TokenType.SET:
-                    print(f"Expected '=' after variable")
-                    raise Exception()
-                
-                content = toks[1].content + '='
-                update_op = None
-                for op in VariableSetOperation:
-                    if content == op.value:
-                        update_op = op
-                        break
-                if update_op is None:
-                    print(f"Unrecognized operation: {toks[1].content}")
-                    raise Exception()
-                return VariableUpdate(toks[0].content, update_op, self.parse_expression())
+        if tok.type == Token.TokenType.INC or tok.type == Token.TokenType.DEC:
+            toktype = tok.type
+            self.lexer.pop_token()
+            if member_access is None: member_access = self.parse_member_access()
+
+            if toktype == Token.TokenType.INC: return VariableUpdate(member_access, VariableSetOperation.INC, None, member_access.accesses[-1].pos)
+            else: return VariableUpdate(member_access, VariableSetOperation.DEC, None, member_access.accesses[-1].pos)
         else:
-            print(f"Unexpected token: {toks[0].content}")
-            raise Exception()
+            if member_access is None: member_access = self.parse_member_access()
+
+            tok: list[Token] = self.lexer.next_token()
+            if tok.type == Token.TokenType.INC or tok.type == Token.TokenType.DEC: return VariableUpdate(member_access, VariableSetOperation.INC, None, member_access.accesses[-1].pos)
+
+            for op in VariableSetOperation:
+                if tok.content == op.value:
+                    return VariableUpdate(member_access, VariableSetOperation.INC, self.parse_expression(), member_access.accesses[-1].pos)
+
+            print(f"Unrecognized operation: {tok.content}")
         
