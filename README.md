@@ -6,6 +6,14 @@ This will be an object-oriented language that is highly memory efficient.  I wan
 
 # Revision History
 
+## InDev Version 0.3.0 - 2024-11-20
+- Compiler Updates:
+    - Added support for expression computation using operations (+,-,*,/)
+    - Tracks the content of registers for optimal usage and limiting the number of load commands
+    - Uses RPN to preserve operation order
+    - Overhauled variable use tracking for higher efficiency
+    - Added strategy to track intermediate values in expression computation
+
 ## InDev Version 0.2.11 - 2024-07-29
 - Parser Updates:
     - Added end position to most statements to track when variables local to that body go out of scope

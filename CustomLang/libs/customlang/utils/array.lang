@@ -12,8 +12,6 @@ public class array<T> {
         u64 pos = valuesPtr + index * sizeof(T);
         mut T result;
 
-        a.b.c.d += k;
-
         asm {
             "
             mov rax, qword [rbp-8]

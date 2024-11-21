@@ -111,6 +111,18 @@ class Value:
     def __init__(self, val: str):
         self.val: str = val
 
+        val = float(val)
+        if int(val) == val: # Val is an integer
+            signed = (val < 0)
+            val = abs(val)
+            if val >= 0xFFFFFF: self.type = 'i64' if signed else 'u64'
+            elif val >= 0xFFFF: self.type = 'i32' if signed else 'u32'
+            elif val >= 0xFF: self.type = 'i16' if signed else 'u16'
+            else: self.type = 'i8' if signed else 'u8'
+        else: # Val is a float
+            if abs(val) < 1.4e-45 or abs(val) > 3.4e38: self.type = 'f64'
+            else: self.type = 'f32'
+
     def __str__(self):
         return self.val
 

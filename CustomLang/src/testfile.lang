@@ -20,6 +20,10 @@ public class MyClass {
     }
 
     public f32 func myFunction2(i8 arg1) {
-        
+        u32 val1 = 5;
+        u32 val2 = 10;
+        u32 val3 = 3;
+
+        u32 result = val1 * (val2 + val3);
     }
 }

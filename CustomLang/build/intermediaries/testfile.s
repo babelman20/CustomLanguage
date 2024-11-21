@@ -37,6 +37,21 @@ section .text
   global testfile_myFunction2
   testfile_myFunction2:
     enter 0, 0
+    sub rsp, 4
+    sub rsp, 4
+    sub rsp, 4
+    sub rsp, 4
+    
+    mov r8d, [rsp+72]
+    mov r9d, [rsp+76]
+    mov r10d, r8d
+    add r10d, r9d
+
+    mov r11d, [rsp+68]
+    mov eax, r11d
+    mul r10d
+    mov r12d, eax
+
 
     leave
     ret
