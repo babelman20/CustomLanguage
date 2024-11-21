@@ -6,6 +6,24 @@ This will be an object-oriented language that is highly memory efficient.  I wan
 
 # Revision History
 
+## InDev Version 0.3.1 - 2024-11-21
+- Lexer Updates:
+    - Fixed SET_ADD spelling error
+    - Moved NEQ (!=) higher in token list to prevent conflict with NOT (!)
+- Parser Updates:
+    - Added suppress_err parameter to hide print statements when errors are raised
+- UnitTest Updates:
+    - Added unit tests
+    - Created all unit tests for lexer
+    - Created parser unit tests for:
+        - Modifiers
+        - Typedefs
+        - Class Extension
+        - Variable Access / Function Call / Constructor Call
+        - Function/Constructor Arguments
+        - Member Access
+    - Store test results in /test/test_results.log file with separate sections for each Test Case
+
 ## InDev Version 0.3.0 - 2024-11-20
 - Compiler Updates:
     - Added support for expression computation using operations (+,-,*,/)

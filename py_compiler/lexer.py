@@ -37,10 +37,11 @@ class Token:
         LPAREN = r'\('
         RPAREN = r'\)'
         EQ = r'=='
+        NEQ = r'!='
         NOT = r'!'
         AND = r'&&'
         OR = r'\|\|'
-        SET_AND = r'\+='
+        SET_ADD = r'\+='
         SET_SUB = r'\-='
         SET_MULT = r'\*='
         SET_DIV = r'/='
@@ -64,7 +65,6 @@ class Token:
         LT = r'<'
         GEQ = r'>='
         GT = r'>'
-        NEQ = r'!='
         COMMA = r','
         DOT = r'\.'
         LBRACKET = r'\['
@@ -157,5 +157,5 @@ class Lexer:
                     if peek: self.hold_tokens.append(token)
                     return token
         
-        print("Unexpected end of file")
+        if self.debug_mode: print("Unexpected content does not match any tokens!")
         raise Exception()
