@@ -6,6 +6,37 @@ This will be an object-oriented language that is highly memory efficient.  I wan
 
 # Revision History
 
+## InDev Version 0.3.1 - 2024-11-26
+- Core Element Updates:
+    - Added equivalence override for == comparison of elements to simplify unit tests
+- Parser Updates:
+    - Fixed Condition to properly handle NOT operator including chained NOT operators (i.e. !!!true)
+    - Fixed Case to take only MemberAccess/Value as comparison value, not expression
+    - Resolved some edge cases causing Case parsing to fail
+    - Refactored Parameters, Cases, and CaseBody to replace recursive strategy with standard loop
+    - Temporarily removed BIT_NOT as operator from Expression since it takes only 1 input while the other operators take 2
+- UnitTest Updates:
+    - Now utilizes == comparison for elements instead of checking all values directly in the test
+    - Created parser unit tests for:
+        - Class
+        - Constructor
+        - Function Declaration
+        - Variable Declaration
+        - Expression
+        - Body
+        - Statement
+        - Return
+        - ASM Block
+        - If
+        - While
+        - For
+        - ForEach
+        - Switch
+        - Case
+        - Condition
+        - Conditions
+        - Variable Update
+
 ## InDev Version 0.3.1 - 2024-11-21
 - Lexer Updates:
     - Fixed SET_ADD spelling error

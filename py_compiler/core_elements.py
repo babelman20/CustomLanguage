@@ -66,8 +66,7 @@ all_operations = [Operation.ADD, Operation.SUB, Operation.MULT, Operation.DIV, O
                     VariableSetOperation.SET, VariableSetOperation.INC, VariableSetOperation.DEC, VariableSetOperation.SET_ADD, VariableSetOperation.SET_SUB, VariableSetOperation.SET_MULT, VariableSetOperation.SET_MOD,
                     VariableSetOperation.SET_BIT_AND, VariableSetOperation.SET_BIT_OR, VariableSetOperation.SET_BIT_XOR, VariableSetOperation.SET_BIT_NOT, VariableSetOperation.SET_BIT_LSHIFT, VariableSetOperation.SET_BIT_RSHIFT]
 
-expression_operations = [Operation.ADD, Operation.SUB, Operation.MULT, Operation.DIV, Operation.MOD, Operation.BIT_AND, Operation.BIT_OR, Operation.BIT_XOR, Operation.BIT_NOT, Operation.BIT_LSHIFT, Operation.BIT_RSHIFT,
-                    ConditionOperation.LEQ, ConditionOperation.LT, ConditionOperation.GEQ, ConditionOperation.GT ,ConditionOperation.NEQ]
+expression_operations = [Operation.ADD, Operation.SUB, Operation.MULT, Operation.DIV, Operation.MOD, Operation.BIT_AND, Operation.BIT_OR, Operation.BIT_XOR, Operation.BIT_LSHIFT, Operation.BIT_RSHIFT]
 
 class Expression:
     pass
@@ -83,16 +82,22 @@ class ConstructorCall:
 
     def __str__(self):
         output = f"new {self.name}"
-        if len(self.typedefs) > 0:
+        if self.typedefs is not None and len(self.typedefs) > 0:
             output += '<'
             for i in range(len(self.typedefs)-1):
                 output += f'{self.typedefs[i]}, '
             output += f'{self.typedefs[-1]}>'
+        output += "("
         for i in range(len(self.args)-1):
             output += f"{self.args[i]}, "
         if len(self.args) > 0: output += str(self.args[-1])
         output += ")"
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, ConstructorCall): return False
+        return self.name == other.name and self.typedefs == other.typedefs and self.args == other.args
+
 
 class FunctionCall:
     def __init__(self, name: str, args: list[Expression]):
@@ -106,6 +111,10 @@ class FunctionCall:
         if len(self.args) > 0: output += str(self.args[-1])
         output += ")"
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, FunctionCall): return False
+        return self.name == other.name and self.args == other.args
 
 class Value:
     def __init__(self, val: str):
@@ -125,6 +134,10 @@ class Value:
 
     def __str__(self):
         return self.val
+    
+    def __eq__(self, other):
+        if not isinstance(other, Value): return False
+        return self.val == other.val
 
 class VariableAccess:
     def __init__(self, name: str, pos: int):
@@ -133,6 +146,10 @@ class VariableAccess:
 
     def __str__(self):
         return self.name
+    
+    def __eq__(self, other):
+        if not isinstance(other, VariableAccess): return False
+        return self.name == other.name
 
 class MemberAccess:
     def __init__(self, accesses: list[VariableAccess | FunctionCall | ConstructorCall]):
@@ -144,13 +161,17 @@ class MemberAccess:
             output += str(self.accesses[i]) + '.'
         output += str(self.accesses[-1])
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, MemberAccess): return False
+        return self.accesses == other.accesses
 
 class Expression:
-    def __init__(self, values: list[Expression | MemberAccess | VariableAccess | FunctionCall | ConstructorCall | Value], ops: list[Operation] = []): # Val is a raw value or a function call
+    def __init__(self, values: list[Expression | MemberAccess | Value], ops: list[Operation] = []): # Val is a raw value or a function call
         if (not type(values) is list and len(ops) > 0) or (not len(values)-1 == len(ops)):
             print("Values/Operations mismatch !!!")
             raise Exception()
-        self.values: list[Expression | MemberAccess | VariableAccess | FunctionCall | ConstructorCall | Value] = values
+        self.values: list[Expression | MemberAccess | Value] = values
         self.ops: list[Operation] = ops
 
     def __str__(self):
@@ -160,6 +181,10 @@ class Expression:
         output += f"{self.values[-1]}"
         output += ")"
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, Expression): return False
+        return self.values == other.values and self.ops == other.ops
     
     def generate_RPN(self) -> list[MemberAccess | VariableAccess | FunctionCall | ConstructorCall | Value | Operation]:
         if len(self.values) == 1: return self.values if type(self.values[0]) is not Expression else self.values[0].generate_RPN()
@@ -204,6 +229,10 @@ class Condition:
        if self.is_negated: return f"!({self.left} {self.operation.value} {self.right})"
        else: return f"{self.left} {self.operation.value} {self.right}"
 
+    def __eq__(self, other):
+        if not isinstance(other, Condition): return False
+        return self.left == other.left and self.right == other.right and self.operation == other.operation and self.is_negated == other.is_negated
+
 class Conditions:
     pass
 
@@ -217,6 +246,10 @@ class Conditions:
         for i in range(len(self.conditions)-1):
             output += f"{self.conditions[i]} {'&&' if self.ops[i] else '||'}"
         output += f'{self.conditions[-1]})'
+
+    def __eq__(self, other):
+        if not isinstance(other, Conditions): return False
+        return self.conditions == other.conditions and self.ops == other.ops
 
 class Parameter:
     def __init__(self, type: str, typedefs: list[str], name: str):
@@ -233,6 +266,10 @@ class Parameter:
                 output += f'{self.typedefs[i]}, '
             output += f'{self.typedefs[-1]}>'
         return f'{self.type} {self.name}'
+    
+    def __eq__(self, other):
+        if not isinstance(other, Parameter): return False
+        return self.name == other.name and self.type == other.type and self.typedefs == other.typedefs
     
     def get_reserve_size(self) -> int:
         if self.type in ['u8','i8']: return 1
@@ -260,6 +297,10 @@ class Variable:
             output += f" = {self.val}"
         return output
     
+    def __eq__(self, other):
+        if not isinstance(other, Variable): return False
+        return self.mods == other.mods and self.type == other.type and self.typedefs == other.typedefs and self.name == other.name and self.val == other.val
+    
     def is_primitive_type(self) -> bool:
         return self.type in primitive_types
     
@@ -278,6 +319,10 @@ class Statement:
 
     def __str__(self) -> str:
         return f"{self.statement}"
+    
+    def __eq__(self, other):
+        if not isinstance(other, Statement): return False
+        return self.statement == other.statement
 
 class Body:
     def __init__(self, statements: list[Statement]):
@@ -290,6 +335,10 @@ class Body:
         output += "}"
         return output
     
+    def __eq__(self, other):
+        if not isinstance(other, Body): return False
+        return self.statements == other.statements
+    
 class CaseBody(Body):
     def __str__(self) -> str:
         output = ""
@@ -299,9 +348,16 @@ class CaseBody(Body):
             output += str(self.statements[-1])
         return output
     
+    def __eq__(self, other):
+        if not isinstance(other, CaseBody): return False
+        return super().__eq__(other)
+    
 class Break:
     def __str__(self) -> str:
         return "break;"
+    
+    def __eq__(self, other):
+        return isinstance(other, Break)
     
 class Return:
     def __init__(self, ret_val: Expression):
@@ -311,12 +367,20 @@ class Return:
         if self.ret_val: return f"return {self.ret_val};"
         return "return;"
     
+    def __eq__(self, other):
+        if not isinstance(other, Return): return False
+        return self.ret_val == other.ret_val
+    
 class Asm:
     def __init__(self, content: str):
         self.content = content
     
     def __str__(self) -> str:
         return "asm \{\n" + self.content + "\n}\n"
+    
+    def __eq__(self, other):
+        if not isinstance(other, Asm): return False
+        return self.content == other.content
     
 class VariableUpdate:
     def __init__(self, member_access: MemberAccess, op: VariableSetOperation, val: Expression, pos: int):
@@ -333,6 +397,10 @@ class VariableUpdate:
             if self.val: return f"--{self.member_access}"
             else: return f"{self.member_access}--"
         return f"{self.member_access} {self.op.value} {self.val}"
+    
+    def __eq__(self, other):
+        if not isinstance(other, VariableUpdate): return False
+        return self.member_access == other.member_access and self.op == other.op and self.val == other.val
 
 class If:
     pass
@@ -360,6 +428,11 @@ class If:
  
         return output
     
+    def __eq__(self, other):
+        if not isinstance(other, If): return False
+        return self.constexpr == other.constexpr and self.conditions == other.conditions \
+            and self.content == other.content and self.elseifs == other.elseifs and self.els == other.els
+
 class While:
     def __init__(self, conditions: Conditions, content: Statement | Body, end_pos: int):
         self.conditions = conditions
@@ -370,6 +443,10 @@ class While:
         output = f"while ({self.conditions}) "
         output += f"{self.content}"
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, While): return False
+        return self.conditions == other.conditions and self.content == other.content
     
 class For:
     def __init__(self, declaration: Variable, conditions: Conditions, update: VariableUpdate, content: Statement | Body, end_pos: int):
@@ -384,8 +461,13 @@ class For:
         output += f"{self.content}"
         return output
     
+    def __eq__(self, other):
+        if not isinstance(other, For): return False
+        return self.declaration == other.declaration and self.conditions == other.conditions \
+                 and self.update == other.update and self.content == other.content
+    
 class ForEach:
-    def __init__(self, var: Variable, iterator: VariableAccess, content: Statement | Body, end_pos: int):
+    def __init__(self, var: Variable, iterator: MemberAccess, content: Statement | Body, end_pos: int):
         self.var = var
         self.iterator = iterator
         self.content = content
@@ -396,8 +478,12 @@ class ForEach:
         output += f"{self.content}"
         return output
     
+    def __eq__(self, other):
+        if not isinstance(other, ForEach): return False
+        return self.var == other.var and self.iterator == other.iterator and self.content == other.content
+    
 class Case:
-    def __init__(self, val: Expression, content: Body):
+    def __init__(self, val: MemberAccess|Value, content: Body):
             self.val = val
             self.content = content
 
@@ -407,6 +493,10 @@ class Case:
         output = f"case {self.val}:"
         if not self.content is None: output += f"\n{self.content}"
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, Case): return False
+        return self.val == other.val and self.content == other.content
 
 class Switch:
     def __init__(self, test_val: Expression, cases: list[Case]):
@@ -419,6 +509,10 @@ class Switch:
             output += f"{case}\n"
         output += '}'
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, Switch): return False
+        return self.test_val == other.test_val and self.cases == other.cases
 
 class Constructor:
     def __init__(self, mods: list[str], params: list[Parameter], body: Body):
@@ -436,6 +530,10 @@ class Constructor:
         if len(self.params) > 0: output += f'{self.params[-1]}'
         output += f') {str(self.body)}'
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, Constructor): return False
+        return self.mods == other.mods and self.params == other.params and self.body == other.body
 
 class Function:
     def __init__(self, mods: list[str], name: str, return_type: str, params: list[Parameter], body: Body):
@@ -455,6 +553,11 @@ class Function:
         if len(self.params) > 0: output += f'{self.params[-1]}'
         output += f') {str(self.body)}'
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, Function): return False
+        return self.mods == other.mods and self.name == other.name and self.return_type == other.return_type \
+                and self.params == other.params and self.body == other.body
 
 class Class:
     pass
@@ -480,6 +583,11 @@ class ClassBody:
             output += f'{str(c)}\n'
         output += '}\n'
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, ClassBody): return False
+        return self.member_vars == other.member_vars and self.constructors == other.constructors \
+                and self.functions == other.functions and self.classes == other.classes
 
 class Class:
     def __init__(self, mods: list[str], name: str, typedefs: list[str], extension: str, body: ClassBody):
@@ -507,6 +615,11 @@ class Class:
             output += f' extends {self.extension}'
         output += f' {self.body}'
         return output
+    
+    def __eq__(self, other):
+        if not isinstance(other, Class): return False
+        return self.mods == other.mods and self.name == other.name and self.typedefs == other.typedefs \
+                and self.extension == other.extension and self.body == other.body
 
 class Program:
     def __init__(self):
@@ -518,6 +631,10 @@ class Program:
         self.nclasses += 1
         self.classes.append(klass)
         self.packages.append(pkg)
+
+    def __eq__(self, other):
+        if not isinstance(other, Program): return False
+        return self.classes == other.classes and self.packages == other.packages
     
     # def __str__(self) -> str:
     #     output = '\n' + str(self.klass) + '\n'
